@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL;
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 export default function Dashboard({ token, userId, go }) {
   const [score, setScore] = useState(null);
