@@ -34,34 +34,31 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-
-# ✅ ✅ ✅ FINAL CORS FIX
+# ✅ ✅ ✅ FINAL CORS CONFIG (IMPORTANT)
 
 allowed_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+
+    # ✅ YOUR VERCEL FRONTEND URL (VERY IMPORTANT)
+    "https://settl-aizqgj87-shehan-nimsara-s-projects.vercel.app",
 ]
 
-# ✅ Add deployed frontend (VERY IMPORTANT)
-if settings.FRONTEND_URL:
+# ✅ If you use env variable (optional)
+if settings.FRONTEND_URL and settings.FRONTEND_URL not in allowed_origins:
     allowed_origins.append(settings.FRONTEND_URL)
-
-# ✅ ✅ TEMPORARY (IMPORTANT FOR DEBUG)
-# This ensures NOTHING gets blocked
-allowed_origins.append("*")
 
 logger.info(f"Allowed CORS origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,   # ✅ now includes "*"
-    allow_credentials=True,
+    allow_origins=allowed_origins,   # ✅ specific origins ONLY
+    allow_credentials=True,          # ✅ safe now
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
 
 # ✅ REGISTER ROUTERS
 app.include_router(auth.router)
