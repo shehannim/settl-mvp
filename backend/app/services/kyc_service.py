@@ -1,8 +1,6 @@
 import re
 import random
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import httpx
 from datetime import datetime
 from typing import Tuple
 import os
@@ -48,28 +46,24 @@ def generate_otp(user_id: str, email: str) -> str:
 
 
 def _send_otp_email(to_email: str, otp: str):
-    sender = os.getenv("EMAIL_ADDRESS")
-    password = os.getenv("EMAIL_PASSWORD")
+    api_key = os.getenv("RESEND_API_KEY")
 
-    if not sender or not password:
+    if not api_key:
         print(f"[DEV] OTP for {to_email}: {otp}")
         return
 
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "Your Settl Verification Code"
-    msg["From"] = f"Settl <{sender}>"
-    msg["To"] = to_email
-
-    text = f"""
-Your Settl verification code is:
-
-{otp}
-
-This code expires in 10 minutes.
-Do not share this code with anyone.
-"""
-
-    html = f"""
+    try:
+        response = httpx.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "from": "Settl <onboarding@resend.dev>",
+                "to": [to_email],
+                "subject": "Your Settl Verification Code",
+                "html": f"""
 <div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 40px 20px;">
   <h2 style="color: #34d399;">Settl</h2>
   <p style="color: #666;">Your verification code is:</p>
@@ -78,16 +72,14 @@ Do not share this code with anyone.
   </div>
   <p style="color: #999; font-size: 13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
 </div>
-"""
-
-    msg.attach(MIMEText(text, "plain"))
-    msg.attach(MIMEText(html, "html"))
-
-    try:
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
-            smtp.login(sender, password)
-            smtp.sendmail(sender, to_email, msg.as_string())
+""",
+            },
+            timeout=10,
+        )
+        if response.status_code in (200, 201):
             print(f"OTP email sent to {to_email}")
+        else:
+            print(f"Resend error: {response.status_code} {response.text}")
     except Exception as e:
         print(f"Email send failed: {e}")
 
