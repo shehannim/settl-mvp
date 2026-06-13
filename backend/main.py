@@ -7,6 +7,7 @@ from app.core.config import get_settings
 from app.routers import auth, kyc, connect, ingest, score, lender
 from app.services.scoring_service import load_model
 import logging
+from app.routers import paypal_router
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
