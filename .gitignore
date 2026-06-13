@@ -43,3 +43,5 @@ uploads/
 *.joblib
 *.model
 *.bin
+# Allow model files
+!backend/model/*.pkl
