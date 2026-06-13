@@ -5,6 +5,11 @@ import axios from "axios";
 const API =
   import.meta.env.VITE_API_URL ||
   "https://settl-backend-s3rc.onrender.com";
+  const API =
+  import.meta.env.VITE_API_URL ||
+  "https://settl-backend-s3rc.onrender.com";
+
+console.log("API URL:", import.meta.env.VITE_API_URL); // ADD THIS
 
 export default function Login({ setToken, setUserId, go }) {
   const [form, setForm] = useState({ email: "", password: "" });
