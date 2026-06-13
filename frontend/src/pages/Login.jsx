@@ -1,7 +1,10 @@
 import { useState } from "react";
 import axios from "axios";
 
-const API = import.meta.env.VITE_API_URL;
+// ✅ FIX: fallback if env not set
+const API =
+  import.meta.env.VITE_API_URL ||
+  "https://settl-backend-s3rc.onrender.com";
 
 export default function Login({ setToken, setUserId, go }) {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -21,14 +24,19 @@ export default function Login({ setToken, setUserId, go }) {
       setToken(token);
       setUserId(res.data.user_id);
 
-      // ✅ IMPORTANT: Store in localStorage
+      // ✅ Save in localStorage
       localStorage.setItem("token", token);
 
-      // ✅ Go to dashboard (FIXED)
+      // ✅ Go to dashboard
       go("dashboard");
 
     } catch (e) {
-      setError(e.response?.data?.detail || "Login failed");
+      // ✅ Better error handling
+      if (e.response) {
+        setError(e.response.data.detail || "Invalid login");
+      } else {
+        setError("Cannot connect to server");
+      }
     }
 
     setLoading(false);
@@ -36,6 +44,7 @@ export default function Login({ setToken, setUserId, go }) {
 
   return (
     <div className="max-w-md mx-auto mt-20 p-8 bg-gray-900 rounded-2xl border border-gray-800">
+
       <div className="text-emerald-400 text-sm font-mono mb-2">
         WELCOME BACK
       </div>
@@ -51,9 +60,11 @@ export default function Login({ setToken, setUserId, go }) {
           </label>
           <input
             className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
-            placeholder="kasun@example.com"
+            placeholder="email@example.com"
             value={form.email}
-            onChange={e => setForm({ ...form, email: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, email: e.target.value })
+            }
           />
         </div>
 
@@ -65,7 +76,9 @@ export default function Login({ setToken, setUserId, go }) {
             type="password"
             className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
             value={form.password}
-            onChange={e => setForm({ ...form, password: e.target.value })}
+            onChange={(e) =>
+              setForm({ ...form, password: e.target.value })
+            }
           />
         </div>
       </div>
