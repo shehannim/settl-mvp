@@ -2,9 +2,7 @@ import { useState } from "react";
 import axios from "axios";
 
 // ✅ FIX: fallback if env not set
-const API =
-  import.meta.env.VITE_API_URL ||
-  "https://settl-backend-s3rc.onrender.com";
+
   const API =
   import.meta.env.VITE_API_URL ||
   "https://settl-backend-s3rc.onrender.com";
