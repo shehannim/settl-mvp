@@ -9,7 +9,6 @@ MODEL_PATH = Path(__file__).parent.parent.parent / "model" / "settl_model.pkl"
 EXPLAINER_PATH = Path(__file__).parent.parent.parent / "model" / "shap_explainer.pkl"
 MODEL_VERSION = "v1.0-synthetic"
 
-# Load model once at startup
 _model = None
 _explainer = None
 
@@ -19,7 +18,12 @@ def load_model():
     if MODEL_PATH.exists():
         _model = joblib.load(MODEL_PATH)
         if EXPLAINER_PATH.exists():
-            _explainer = joblib.load(EXPLAINER_PATH)
+            try:
+                _explainer = joblib.load(EXPLAINER_PATH)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).warning(f"SHAP explainer failed to load: {e}")
+                _explainer = None
     else:
         raise RuntimeError(f"Model not found at {MODEL_PATH}. Run scripts/train_model.py first.")
 
@@ -33,12 +37,9 @@ def get_model():
 
 def get_explainer():
     global _explainer
-    if _explainer is None:
-        load_model()
-    return _explainer
+    return _explainer  # may be None — handled gracefully
 
 
-# ── FEATURE METADATA ─────────────────────────────────────────────────
 FEATURE_LABELS = {
     "income_cv":                  ("Income stability",        "income"),
     "income_trend_slope":         ("Income growth trend",     "income"),
@@ -109,7 +110,6 @@ REASON_CODES = {
 
 
 def probability_to_score(prob: float) -> int:
-    """Maps raw model probability (0–1) to credit score (300–850)."""
     return round(300 + prob * 550)
 
 
@@ -122,26 +122,25 @@ def score_to_band(score: int) -> str:
 
 
 def compute_shap_values(feature_vector: np.ndarray) -> np.ndarray:
-    """Returns SHAP values for the feature vector."""
     explainer = get_explainer()
     if explainer is None:
         return np.zeros(len(FEATURE_ORDER))
-    values = explainer.shap_values(feature_vector)
-    if isinstance(values, list):
-        values = values[1]  # class 1 (creditworthy)
-    return values.flatten()
+    try:
+        values = explainer.shap_values(feature_vector)
+        if isinstance(values, list):
+            values = values[1]
+        return values.flatten()
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"SHAP failed, using zeros: {e}")
+        return np.zeros(len(FEATURE_ORDER))
 
 
 def shap_to_score_points(shap_values: np.ndarray, base_prob: float = 0.5) -> np.ndarray:
-    """Converts SHAP probability contributions to score point contributions."""
     return shap_values * 550
 
 
 def build_factor_list(shap_points: np.ndarray, top_n: int = 3) -> Tuple[List[Dict], List[Dict]]:
-    """
-    Splits SHAP contributions into top positive and top negative factors.
-    Returns (positive_list, negative_list) each sorted by absolute impact.
-    """
     factors = []
     for i, feature in enumerate(FEATURE_ORDER):
         pts = float(shap_points[i])
@@ -165,10 +164,6 @@ def build_factor_list(shap_points: np.ndarray, top_n: int = 3) -> Tuple[List[Dic
 
 
 def build_improvement_tips(negative_factors: List[Dict]) -> List[Dict]:
-    """
-    Generates actionable improvement tips from negative SHAP factors.
-    Excludes non-actionable features (account age, digital tenure).
-    """
     non_actionable = {"platform_account_age_months", "digital_tenure_months", "income_yoy_growth"}
 
     tips_map = {
@@ -217,19 +212,11 @@ def compute_confidence_score(
     soft_flag_count: int,
     identity_consistency: float,
 ) -> Tuple[float, Dict]:
-    """
-    Computes the confidence score using the formula:
-    confidence = (0.40 × breadth + 0.35 × history + 0.25 × completeness)
-                 × (1 - 0.15 × soft_flags) × identity_consistency
-    """
-    # Source breadth (max categories = 4: payment, freelance, utility, BNPL)
     max_categories = 4
     breadth = min(source_count / max_categories, 1.0)
-    # Diversity bonus
     if source_count >= 3:
         breadth = min(breadth + 0.1, 1.0)
 
-    # History length (piecewise)
     if history_months >= 24:
         history = 1.00
     elif history_months >= 18:
@@ -243,10 +230,7 @@ def compute_confidence_score(
     else:
         history = 0.10
 
-    # Raw confidence
     raw = (0.40 * breadth) + (0.35 * history) + (0.25 * data_completeness)
-
-    # Fraud adjustment
     fraud_adj = max(0.0, 1.0 - 0.15 * soft_flag_count)
     final = raw * fraud_adj * identity_consistency
 
@@ -261,9 +245,6 @@ def compute_confidence_score(
 
 
 def compute_category_scores(shap_points: np.ndarray) -> List[Dict]:
-    """
-    Groups SHAP contributions by category and returns percentage scores.
-    """
     categories = {"income": 0.0, "payment": 0.0, "platform": 0.0, "footprint": 0.0}
     weights =    {"income": 0.35, "payment": 0.30, "platform": 0.20, "footprint": 0.15}
 
@@ -271,11 +252,9 @@ def compute_category_scores(shap_points: np.ndarray) -> List[Dict]:
         _, category = FEATURE_LABELS[feature]
         categories[category] += shap_points[i]
 
-    # Normalise each category contribution to a 0–100 display score
     display_scores = []
     for cat, weight in weights.items():
         contribution = categories[cat]
-        # Map contribution to percentage (base 50 + scaled contribution)
         pct = min(max(50 + contribution / 5, 0), 100)
         display_scores.append({
             "category": cat,
@@ -287,9 +266,6 @@ def compute_category_scores(shap_points: np.ndarray) -> List[Dict]:
 
 
 def run_scoring(feature_vector: np.ndarray) -> Dict:
-    """
-    Full scoring pipeline: inference → SHAP → score → explanation.
-    """
     model = get_model()
     prob = float(model.predict_proba(feature_vector)[0][1])
     score = probability_to_score(prob)
