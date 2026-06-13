@@ -1,13 +1,7 @@
 import { useState } from "react";
 import axios from "axios";
 
-// ✅ FIX: fallback if env not set
-
-  const API =
-  import.meta.env.VITE_API_URL ||
-  "https://settl-backend-s3rc.onrender.com";
-
-console.log("API URL:", import.meta.env.VITE_API_URL); // ADD THIS
+const API = "https://settl-backend-s3rc.onrender.com";
 
 export default function Login({ setToken, setUserId, go }) {
   const [form, setForm] = useState({ email: "", password: "" });
@@ -23,18 +17,12 @@ export default function Login({ setToken, setUserId, go }) {
 
       const token = res.data.access_token;
 
-      // ✅ Save token
       setToken(token);
       setUserId(res.data.user_id);
-
-      // ✅ Save in localStorage
       localStorage.setItem("token", token);
-
-      // ✅ Go to dashboard
       go("dashboard");
 
     } catch (e) {
-      // ✅ Better error handling
       if (e.response) {
         setError(e.response.data.detail || "Invalid login");
       } else {
@@ -65,9 +53,7 @@ export default function Login({ setToken, setUserId, go }) {
             className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
             placeholder="email@example.com"
             value={form.email}
-            onChange={(e) =>
-              setForm({ ...form, email: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, email: e.target.value })}
           />
         </div>
 
@@ -79,9 +65,7 @@ export default function Login({ setToken, setUserId, go }) {
             type="password"
             className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
             value={form.password}
-            onChange={(e) =>
-              setForm({ ...form, password: e.target.value })
-            }
+            onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
         </div>
       </div>
