@@ -38,8 +38,3 @@ Thumbs.db
 tmp/
 uploads/
 
-# ML / model files if large
-*.pkl
-*.joblib
-*.model
-*.bin
