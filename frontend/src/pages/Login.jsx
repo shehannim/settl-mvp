@@ -21,7 +21,6 @@ export default function Login({ setToken, setUserId, go }) {
       setUserId(res.data.user_id);
       localStorage.setItem("token", token);
       go("dashboard");
-
     } catch (e) {
       if (e.response) {
         setError(e.response.data.detail || "Invalid login");
@@ -34,23 +33,22 @@ export default function Login({ setToken, setUserId, go }) {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-8 bg-gray-900 rounded-2xl border border-gray-800">
-
-      <div className="text-emerald-400 text-sm font-mono mb-2">
+    <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl border border-zinc-200 shadow-sm font-sans">
+      <div className="text-zinc-400 text-xs font-medium tracking-wider mb-2 uppercase">
         WELCOME BACK
       </div>
 
-      <h1 className="text-2xl font-bold mb-6">
+      <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-6">
         Login to Settl
       </h1>
 
       <div className="space-y-4">
         <div>
-          <label className="text-xs text-gray-400 font-mono uppercase">
+          <label className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
             Email
           </label>
           <input
-            className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
+            className="w-full mt-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:bg-white outline-none transition"
             placeholder="email@example.com"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
@@ -58,12 +56,13 @@ export default function Login({ setToken, setUserId, go }) {
         </div>
 
         <div>
-          <label className="text-xs text-gray-400 font-mono uppercase">
+          <label className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
             Password
           </label>
           <input
             type="password"
-            className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
+            className="w-full mt-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 focus:border-zinc-900 focus:bg-white outline-none transition"
+            placeholder="••••••••"
             value={form.password}
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
@@ -71,7 +70,7 @@ export default function Login({ setToken, setUserId, go }) {
       </div>
 
       {error && (
-        <div className="mt-4 text-red-400 text-sm font-mono">
+        <div className="mt-4 text-red-500 text-sm font-medium tracking-wide">
           {error}
         </div>
       )}
@@ -79,7 +78,7 @@ export default function Login({ setToken, setUserId, go }) {
       <button
         onClick={submit}
         disabled={loading}
-        className="w-full mt-6 p-4 bg-emerald-400 text-gray-950 font-bold rounded-xl hover:bg-emerald-300 transition disabled:opacity-50"
+        className="w-full mt-6 p-4 bg-zinc-900 text-white font-semibold rounded-xl hover:bg-zinc-800 transition disabled:opacity-50 tracking-wide"
       >
         {loading ? "Logging in..." : "Login →"}
       </button>

@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+@theme {
+  /*  Tailwind v4 maps these directly to font-sans and font-mono utilities! */
+  --font-sans: "Plus Jakarta Sans", sans-serif;
+  --font-mono: "Geist Mono", monospace;
+}

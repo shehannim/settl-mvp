@@ -1,3 +1,12 @@
+:root {
+  --accent: #18181b !important; /* Elegant deep charcoal */
+  --accent-bg: #f4f4f5 !important; /* Soft light zinc background */
+  --accent-border: #d4d4d8 !important; /* Muted gray border for hover */
+  --border: #e4e4e7 !important; /* Clean line dividers */
+  --text-h: #0f172a !important; /* Slate ink black for headings */
+  --social-bg: #ffffff !important; /* Clean white canvas for containers */
+}
+
 .counter {
   font-size: 16px;
   padding: 5px 10px;
@@ -167,7 +176,7 @@
 
   &::before,
   &::after {
-    content: '';
+    content: "";
     position: absolute;
     top: -4.5px;
     border: 5px solid transparent;
@@ -181,4 +190,45 @@
     right: 0;
     border-right-color: var(--border);
   }
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.995);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-pageIn {
+  animation: pageIn 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  will-change: transform, opacity;
+}
+
+@keyframes cardIn {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Staggered animation classes with clean cubic-bezier easing */
+.animate-card-1 {
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.animate-card-2 {
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.06s forwards;
+}
+.animate-card-3 {
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.12s forwards;
+}
+.animate-card-4 {
+  animation: cardIn 1s cubic-bezier(0.16, 1, 0.3, 1) 0.18s forwards;
 }
