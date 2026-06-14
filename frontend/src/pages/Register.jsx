@@ -58,7 +58,7 @@ export default function Register({ setToken, setUserId, go }) {
 
       // 4. Go directly to dashboard
       go("dashboard");
-    } catch (e) {
+          } catch (e) {
       console.error("REGISTER ERROR:", e);
       console.error("BACKEND RESPONSE:", e.response?.data);
       setError(e.response?.data?.detail || "Registration failed");
@@ -68,26 +68,28 @@ export default function Register({ setToken, setUserId, go }) {
   };
 
   return (
-    <div className="max-w-md mx-auto mt-20 p-8 bg-gray-900 rounded-2xl border border-gray-800">
-      <div className="text-emerald-400 text-sm font-mono mb-2">
-        CREATE ACCOUNT
+    <div className="max-w-md mx-auto mt-20 p-8 bg-white rounded-2xl border border-zinc-200 shadow-sm font-sans">
+      <div className="text-zinc-400 text-xs font-medium tracking-wider mb-2 uppercase">
+        Create Account
       </div>
 
-      <h1 className="text-2xl font-bold mb-2">Join Settl</h1>
+      <h1 className="text-2xl font-bold text-zinc-900 tracking-tight mb-2">
+        Join Settl
+      </h1>
 
-      <p className="text-gray-400 text-sm mb-6">
+      <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
         Create your account to start building your alternative credit profile.
       </p>
 
       <div className="space-y-4">
         {/* Full Name */}
         <div>
-          <label className="text-xs text-gray-400 font-mono uppercase">
+          <label className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
             Full name
           </label>
 
           <input
-            className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
+            className="w-full mt-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:bg-white outline-none transition"
             placeholder="Kasun Perera"
             value={form.full_name}
             onChange={(e) =>
@@ -101,13 +103,13 @@ export default function Register({ setToken, setUserId, go }) {
 
         {/* Email */}
         <div>
-          <label className="text-xs text-gray-400 font-mono uppercase">
+          <label className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
             Email
           </label>
 
           <input
             type="email"
-            className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
+            className="w-full mt-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:bg-white outline-none transition"
             placeholder="kasun@example.com"
             value={form.email}
             onChange={(e) =>
@@ -121,13 +123,13 @@ export default function Register({ setToken, setUserId, go }) {
 
         {/* Password */}
         <div>
-          <label className="text-xs text-gray-400 font-mono uppercase">
+          <label className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
             Password
           </label>
 
           <input
             type="password"
-            className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none"
+            className="w-full mt-1.5 p-3 bg-zinc-50 border border-zinc-200 rounded-lg text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:bg-white outline-none transition"
             placeholder="Min 8 characters"
             value={form.password}
             onChange={(e) =>
@@ -142,7 +144,7 @@ export default function Register({ setToken, setUserId, go }) {
 
       {/* Error */}
       {error && (
-        <div className="mt-4 text-red-400 text-sm font-mono">
+        <div className="mt-4 text-red-500 text-sm font-medium tracking-wide">
           {error}
         </div>
       )}
@@ -151,17 +153,17 @@ export default function Register({ setToken, setUserId, go }) {
       <button
         onClick={submit}
         disabled={loading}
-        className="w-full mt-6 p-4 bg-emerald-400 text-gray-950 font-bold rounded-xl hover:bg-emerald-300 transition disabled:opacity-50"
+        className="w-full mt-6 p-4 bg-zinc-900 text-white font-semibold rounded-xl hover:bg-zinc-800 transition disabled:opacity-50 tracking-wide"
       >
         {loading ? "Creating account..." : "Create account →"}
       </button>
 
       {/* Login link */}
-      <div className="mt-4 text-center text-sm text-gray-500">
+      <div className="mt-5 text-center text-sm text-zinc-400">
         Already have an account?{" "}
         <span
           onClick={() => go("login")}
-          className="text-emerald-400 cursor-pointer hover:text-emerald-300"
+          className="text-zinc-900 font-medium cursor-pointer hover:underline"
         >
           Login
         </span>
