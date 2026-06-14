@@ -227,13 +227,9 @@ export default function App() {
             <Dashboard token={token} userId={userId} go={go} />
           )}
 
-          {page === "dashboard" && (
-            <Dashboard token={token} userId={userId} go={go} />
-          )}
-
           {page === "kyc" && <KYC token={token} go={go} />}
 
-          {page === "paypal-connect" && <PayPalConnect go={go} />}
+          {page === "lender" && <Lender />}
 
           {page === "paypal-connect" && <PayPalConnect go={go} />}
 
@@ -242,8 +238,6 @@ export default function App() {
           )}
 
           {page === "paypal-success" && <PayPalSuccess go={go} />}
-
-          {page === "paypal-dashboard" && <PayPalDashboard />}
 
           {page === "paypal-dashboard" && <PayPalDashboard />}
         </div>
