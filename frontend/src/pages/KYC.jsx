@@ -1,7 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
+import emailjs from "@emailjs/browser";
 
-const API = import.meta.env.VITE_API_URL;
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
+
+const EMAILJS_SERVICE_ID = "service_6uua9b7";
+const EMAILJS_TEMPLATE_ID = "template_ocn365k";
+const EMAILJS_PUBLIC_KEY = "_XIs6uup2N4CsgCV8";
 
 export default function KYC({ token, go }) {
   const [nic, setNic] = useState("");
@@ -9,7 +14,6 @@ export default function KYC({ token, go }) {
   const [step, setStep] = useState("nic");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [verified, setVerified] = useState(false);
 
   const headers = { Authorization: `Bearer ${token}` };
 
@@ -17,10 +21,31 @@ export default function KYC({ token, go }) {
     setLoading(true);
     setError("");
     try {
-      await axios.post(`${API}/api/kyc/verify-nic`, { nic_number: nic }, { headers });
+      // ✅ Step 1: Tell backend to generate and store OTP
+      const res = await axios.post(
+        `${API}/api/kyc/verify-nic`,
+        { nic_number: nic },
+        { headers }
+      );
+
+      const generatedOtp = res.data.otp;
+      const userEmail = res.data.email;
+
+      // ✅ Step 2: Send OTP email via EmailJS from frontend
+      await emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_ID,
+        {
+          to_email: userEmail,
+          otp: generatedOtp,
+        },
+        EMAILJS_PUBLIC_KEY
+      );
+
       setStep("otp");
     } catch (e) {
-      setError(e.response?.data?.detail || "NIC verification failed");
+      console.error(e);
+      setError(e.response?.data?.detail || "Verification failed");
     }
     setLoading(false);
   };
@@ -30,7 +55,6 @@ export default function KYC({ token, go }) {
     setError("");
     try {
       await axios.post(`${API}/api/kyc/verify-otp`, { otp_code: otp }, { headers });
-      setVerified(true);
       setStep("done");
     } catch (e) {
       setError(e.response?.data?.detail || "OTP verification failed");
@@ -68,15 +92,12 @@ export default function KYC({ token, go }) {
       {step === "otp" && (
         <>
           <div className="text-emerald-400 text-sm font-mono mb-2">STEP 2 · KYC</div>
-          <h1 className="text-2xl font-bold mb-2">Check your phone</h1>
-          <p className="text-gray-400 text-sm mb-6">Enter the 6-digit code sent to your registered mobile number.</p>
-          <div className="p-3 bg-emerald-400/10 border border-emerald-400/30 rounded-lg text-emerald-400 text-sm font-mono mb-4">
-            DEMO: use code 123456
-          </div>
+          <h1 className="text-2xl font-bold mb-2">Check your email</h1>
+          <p className="text-gray-400 text-sm mb-6">Enter the 6-digit code sent to your email address.</p>
           <label className="text-xs text-gray-400 font-mono uppercase">Verification code</label>
           <input
             className="w-full mt-1 p-3 bg-gray-800 border border-gray-700 rounded-lg text-white focus:border-emerald-400 outline-none font-mono text-center text-2xl tracking-widest"
-            placeholder="123456"
+            placeholder="______"
             maxLength={6}
             value={otp}
             onChange={e => setOtp(e.target.value)}
@@ -97,9 +118,9 @@ export default function KYC({ token, go }) {
           <div className="text-center">
             <div className="text-6xl mb-4">✅</div>
             <h1 className="text-2xl font-bold mb-2">Identity verified</h1>
-            <p className="text-gray-400 text-sm mb-8">Your identity is now anchored to your NIC. All connected data will be verified against this identity.</p>
+            <p className="text-gray-400 text-sm mb-8">Your identity is now anchored to your NIC.</p>
             <div className="space-y-2 mb-8 text-left">
-              {["NIC format validated", "Mobile number confirmed", "Identity anchor created"].map(t => (
+              {["NIC format validated", "Email confirmed", "Identity anchor created"].map(t => (
                 <div key={t} className="flex items-center gap-3 p-3 bg-gray-800 rounded-lg border border-gray-700">
                   <span className="text-emerald-400 font-mono">✓</span>
                   <span className="text-sm text-gray-300 font-mono">{t}</span>

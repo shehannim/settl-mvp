@@ -18,7 +18,6 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
 
     db = get_supabase_admin()
 
-    # ✅ Fetch user email
     result = db.table("users").select("email").eq("id", user_id).execute()
     if not result.data:
         raise HTTPException(status_code=404, detail="User not found")
@@ -29,13 +28,14 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
         "nic_validated_at": datetime.utcnow().isoformat(),
     }).eq("id", user_id).execute()
 
-    # ✅ Send OTP to user's email
-    generate_otp(user_id, user_email)
+    # ✅ Generate OTP and return it to frontend for EmailJS
+    otp = generate_otp(user_id, user_email)
 
     return {
         "success": True,
-        "message": "Verification code sent to your email.",
-        "masked_email": user_email[:3] + "***@" + user_email.split("@")[1],
+        "otp": otp,
+        "email": user_email,
+        "message": "Verification code generated.",
     }
 
 
