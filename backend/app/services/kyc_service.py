@@ -1,9 +1,7 @@
 import re
 import random
-import httpx
 from datetime import datetime
 from typing import Tuple
-import os
 
 _otp_store: dict = {}
 
@@ -34,54 +32,16 @@ def validate_nic(nic: str) -> Tuple[bool, str]:
     return False, "Invalid NIC format. Use 900123456V or 199012345678"
 
 
-def generate_otp(user_id: str, email: str) -> str:
+def generate_otp(user_id: str, email: str = None) -> str:
     otp = str(random.randint(100000, 999999))
     _otp_store[user_id] = {
         "otp": otp,
         "created_at": datetime.utcnow(),
         "attempts": 0
     }
-    _send_otp_email(email, otp)
+    # ✅ Email is handled by EmailJS on the frontend
+    print(f"OTP generated for {user_id}: {otp}")
     return otp
-
-
-def _send_otp_email(to_email: str, otp: str):
-    api_key = os.getenv("RESEND_API_KEY")
-
-    if not api_key:
-        print(f"[DEV] OTP for {to_email}: {otp}")
-        return
-
-    try:
-        response = httpx.post(
-            "https://api.resend.com/emails",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "from": "Settl <onboarding@resend.dev>",
-                "to": [to_email],
-                "subject": "Your Settl Verification Code",
-                "html": f"""
-<div style="font-family: sans-serif; max-width: 400px; margin: 0 auto; padding: 40px 20px;">
-  <h2 style="color: #34d399;">Settl</h2>
-  <p style="color: #666;">Your verification code is:</p>
-  <div style="font-size: 40px; font-weight: bold; letter-spacing: 8px; color: #111; margin: 20px 0;">
-    {otp}
-  </div>
-  <p style="color: #999; font-size: 13px;">This code expires in 10 minutes. Do not share it with anyone.</p>
-</div>
-""",
-            },
-            timeout=10,
-        )
-        if response.status_code in (200, 201):
-            print(f"OTP email sent to {to_email}")
-        else:
-            print(f"Resend error: {response.status_code} {response.text}")
-    except Exception as e:
-        print(f"Email send failed: {e}")
 
 
 def verify_otp(user_id: str, code: str) -> Tuple[bool, str]:
