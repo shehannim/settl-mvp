@@ -1,41 +1,217 @@
-import { useState, useEffect } from "react";
-import "./App.css"; //
+import { useState, useEffect, useRef } from "react";
+import "./App.css";
 
-// ✅ Pages (FIXED: added .jsx ONLY)
+// Pages
 import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import KYC from "./pages/KYC.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import Lender from "./pages/Lender.jsx";
-
+import BillUpload from "./pages/BillUpload.jsx";
 import PayPalConnect from "./pages/PayPalConnect.jsx";
 import PayPalCallback from "./pages/PayPalCallback.jsx";
 import PayPalDashboard from "./pages/PayPalDashboard.jsx";
 import PayPalSuccess from "./pages/PayPalSuccess.jsx";
 
+/* =========================
+   Icons
+========================= */
+
+function MenuIcon() {
+  return (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="3" y1="6" x2="21" y2="6" />
+      <line x1="3" y1="12" x2="21" y2="12" />
+      <line x1="3" y1="18" x2="21" y2="18" />
+    </svg>
+  );
+}
+
+function ChevronDownIcon({ open = false }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
+    >
+      <polyline points="6 9 12 15 18 9" />
+    </svg>
+  );
+}
+
+function LogoutIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+      <polyline points="16 17 21 12 16 7" />
+      <line x1="21" y1="12" x2="9" y2="12" />
+    </svg>
+  );
+}
+
+function UserIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M20 21a8 8 0 0 0-16 0" />
+      <circle cx="12" cy="7" r="4" />
+    </svg>
+  );
+}
+
+function MailIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m21 7-9 6-9-6" />
+    </svg>
+  );
+}
+
+function IdIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <line x1="8" y1="10" x2="8" y2="10" />
+      <line x1="12" y1="10" x2="16" y2="10" />
+      <line x1="12" y1="14" x2="16" y2="14" />
+    </svg>
+  );
+}
+
+function ShieldIcon() {
+  return (
+    <svg
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+    </svg>
+  );
+}
+
+/* =========================
+   Fingerprint Mark
+========================= */
+
+function FingerprintMark({ className = "w-6 h-6", stroke = "white" }) {
+  return (
+    <svg
+      viewBox="0 0 64 64"
+      role="img"
+      aria-label="Settl fingerprint mark"
+      className={className}
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M34 7c-7 0-12 2-16 7" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M43 10c-3-3-7-5-12-6" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M50 18c-1-3-3-6-5-8" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+
+      <path d="M18 34c0-14 9-24 20-24 9 0 17 6 20 15" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M14 46c0-19 11-31 24-31 11 0 20 8 22 20" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M14 56c0-4 0-8 0-11 0-19 11-34 26-34 12 0 22 8 25 22" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+
+      <path d="M24 58c-5-5-8-12-8-20 0-13 8-22 18-22 8 0 15 6 17 14" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M32 59c-6-4-10-11-10-19 0-10 6-17 14-17 7 0 12 5 13 12" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M40 56c-2 0-5-1-7-3-4-3-6-8-6-13 0-7 4-12 10-12 5 0 9 4 9 10" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+
+      <path d="M39 48c0 3-1 6-3 8" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M35 50c-4-2-6-6-6-11 0-5 3-8 7-8 4 0 7 3 7 7 0 2-1 5-2 6" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+      <path d="M34 57c-2-1-4-2-6-4-3-3-5-8-5-13" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/* =========================
+   App
+========================= */
+
 export default function App() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  // ✅ Read token from localStorage when app starts
+  const profileMenuRef = useRef(null);
+  const profileButtonRef = useRef(null);
+
   const savedToken = localStorage.getItem("token");
-
-  // ✅ If token exists, start on dashboard. Otherwise start on login.
   const [page, setPage] = useState(savedToken ? "dashboard" : "login");
   const [token, setToken] = useState(savedToken || "");
-  const [userId, setUserId] = useState("");
+  const [userId, setUserId] = useState(localStorage.getItem("userId") || "");
 
-  const go = (p) => setPage(p);
+  const go = (p) => {
+    setPage(p);
+    setProfileMenuOpen(false);
+    setMobileMenuOpen(false);
+  };
 
-  // ✅ Logout function
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("paypal_user_id");
+    localStorage.removeItem("userId");
     setToken("");
     setUserId("");
+    setProfileMenuOpen(false);
+    setMobileMenuOpen(false);
     setPage("login");
   };
 
-  // ✅ Detect PayPal OAuth callback/success automatically
   useEffect(() => {
     const search = window.location.search;
     const path = window.location.pathname;
@@ -51,43 +227,97 @@ export default function App() {
     }
   }, []);
 
-  // ✅ AUTH SCREEN
+  /* ✅ FIX: outside click close for profile dropdown */
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (!profileMenuOpen) return;
+
+      const menuEl = profileMenuRef.current;
+      const buttonEl = profileButtonRef.current;
+
+      if (
+        menuEl &&
+        !menuEl.contains(event.target) &&
+        buttonEl &&
+        !buttonEl.contains(event.target)
+      ) {
+        setProfileMenuOpen(false);
+      }
+    }
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [profileMenuOpen]);
+
+  const userEmail = localStorage.getItem("email") || "user@settl.io";
+  const storedName = localStorage.getItem("name");
+  const userName =
+    storedName ||
+    userEmail
+      .split("@")[0]
+      .replace(/\./g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase()) ||
+    "User Name";
+
+  const profileType = "Personal";
+  const accountStatus = "Verified";
+  const firstLetter = userName?.[0]?.toUpperCase() || "U";
+  const displayUserId = userId || localStorage.getItem("userId") || "USR-29184";
+
+  const tabs = [
+    { id: "dashboard", label: "Dashboard" },
+    { id: "kyc", label: "KYC" },
+    { id: "lender", label: "Lender" },
+    { id: "bill-upload", label: "Bills" },
+    { id: "paypal-dashboard", label: "Income" },
+  ];
+
+  /* ================= AUTH ================= */
   if (!token) {
     return (
-      <div className="min-h-screen bg-zinc-50/80 text-zinc-950 font-sans">
-        {/* Simple auth nav */}
-        <div className="flex gap-4 p-4 bg-white border-b border-zinc-200 text-sm items-center shadow-sm">
-          <span className="text-zinc-950 font-bold text-lg mr-4 tracking-tight">
-            Settl
-          </span>
+      <div className="min-h-screen bg-slate-50 text-slate-900">
+        <div className="sticky top-0 z-40 w-full bg-white/75 backdrop-blur-xl border-b border-black/5">
+          <div className="max-w-[1500px] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
+            <button
+              onClick={() => go("login")}
+              className="flex items-center gap-3 cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
+                <FingerprintMark className="w-6 h-6" stroke="white" />
+              </div>
+              <span className="font-semibold text-lg tracking-tight text-slate-900">
+                Settl
+              </span>
+            </button>
 
-          <button
-            onClick={() => go("login")}
-            className={
-              page === "login"
-                ? "text-zinc-950 font-semibold"
-                : "text-zinc-400 hover:text-zinc-900 transition-colors"
-            }
-          >
-            Login
-          </button>
-
-          <button
-            onClick={() => go("register")}
-            className={
-              page === "register"
-                ? "text-zinc-950 font-semibold"
-                : "text-zinc-400 hover:text-zinc-900 transition-colors"
-            }
-          >
-            Register
-          </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => go("login")}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                  page === "login"
+                    ? "bg-black text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Login
+              </button>
+              <button
+                onClick={() => go("register")}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
+                  page === "register"
+                    ? "bg-black text-white"
+                    : "text-slate-600 hover:bg-slate-100"
+                }`}
+              >
+                Register
+              </button>
+            </div>
+          </div>
         </div>
 
         {page === "login" && (
           <Login setToken={setToken} setUserId={setUserId} go={go} />
         )}
-
         {page === "register" && (
           <Register setToken={setToken} setUserId={setUserId} go={go} />
         )}
@@ -95,153 +325,291 @@ export default function App() {
     );
   }
 
-  // ✅ LOGGED-IN APP
   return (
-    <div className="min-h-screen bg-zinc-50 text-zinc-950 font-sans">
-      {/* ✅ RESPONSIVE PREMIUM FINTECH NAVBAR */}
-      <div className="w-full backdrop-blur-md sticky top-0 z-50">
-        <div className="px-4 sm:px-6 py-3.5 flex items-center justify-between">
-          {/* Left Side: Brand Identity */}
-          <div className="flex items-center gap-8">
-            <span className="text-zinc-900 font-semibold text-lg md:text-4xl tracking-tight">
-              Settl
-            </span>
+    <div className="min-h-screen bg-slate-50 text-slate-900">
 
-            {/* ─── DESKTOP NAVIGATION TRACK ─── */}
-            <nav className="hidden ml-6 md:flex items-center gap-4 rounded-full">
-              {[
-                { id: "dashboard", label: "Dashboard" },
-                { id: "kyc", label: "Get Verified" },
-                { id: "lender", label: "Lender" },
-                { id: "paypal-connect", label: "Connect PayPal" },
-                { id: "paypal-dashboard", label: "PayPal Dashboard" },
-              ].map((tab) => {
-                const isActive = page === tab.id;
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => go(tab.id)}
-                    className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 ${
-                      isActive
-                        ? "bg-zinc-950 text-white shadow-[0_2px_8px_rgba(0,0,0,0.1)] scale-[1.02]"
-                        : "text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100/70"
-                    }`}
-                  >
-                    {tab.label}
-                  </button>
-                );
-              })}
-            </nav>
-          </div>
+      {/* subtle local styling */}
+      <style>{`
+        @keyframes dropdownIn {
+          0% {
+            opacity: 0;
+            transform: translateY(-8px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
 
-          {/* Right Side: Action Triggers & Menu Controls */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Profile Avatar Node */}
-            <div className="w-9 h-9 rounded-full bg-zinc-100 border border-zinc-200 shadow-sm flex items-center justify-center text-xs overflow-hidden font-bold text-zinc-700">
-              <span className="tracking-tighter">U</span>
-            </div>
+        .dropdown-animate {
+          animation: dropdownIn 160ms ease-out;
+          transform-origin: top right;
+        }
 
-            {/* Desktop Logout Button */}
+        .glass-soft {
+          background: rgba(255,255,255,0.65);
+          backdrop-filter: blur(22px) saturate(160%);
+          -webkit-backdrop-filter: blur(22px) saturate(160%);
+          border: 1px solid rgba(255,255,255,0.45);
+          box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+        }
+      `}</style>
+
+      {/* ================= NAVBAR ================= */}
+      <nav className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-xl border-b border-black/5">
+        <div className="max-w-[1500px] mx-auto h-[76px] px-4 sm:px-6 md:px-10 flex items-center justify-between">
+
+          {/* LEFT */}
+          <div className="flex items-center gap-6 lg:gap-8">
             <button
-              onClick={logout}
-              className="hidden md:block text-xs font-bold text-zinc-400 hover:text-red-600 px-2 py-2 transition-colors"
+              onClick={() => go("dashboard")}
+              className="flex items-center gap-3 cursor-pointer"
             >
-              Logout
+              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
+                <FingerprintMark className="w-6 h-6" stroke="white" />
+              </div>
+
+              <span className="font-semibold text-[18px] tracking-tight text-slate-900">
+                Settl
+              </span>
             </button>
 
-            {/* ─── MOBILE MENU HAMBURGER TRIGGER ─── */}
-            <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden w-9 h-9 rounded-xl bg-zinc-50 border border-zinc-200/80 flex flex-col items-center justify-center gap-1.5 hover:bg-zinc-100 transition"
-            >
-              <span
-                className={`w-4 h-0.5 bg-zinc-800 transition-transform duration-200 ${mobileMenuOpen ? "rotate-45 translate-y-1" : ""}`}
-              />
-              <span
-                className={`w-4 h-0.5 bg-zinc-800 transition-opacity duration-200 ${mobileMenuOpen ? "opacity-0" : ""}`}
-              />
-              <span
-                className={`w-4 h-0.5 bg-zinc-800 transition-transform duration-200 ${mobileMenuOpen ? "-rotate-45 -translate-y-1" : ""}`}
-              />
-            </button>
-          </div>
-        </div>
-
-        {/* ─── MOBILE EXPANDED DROPDOWN PANEL (Smooth Slide Configuration) ─── */}
-        <div
-          className={`md:hidden border-t border-zinc-100 bg-white/95 backdrop-blur-lg overflow-hidden transition-all duration-300 ease-in-out origin-top ${
-            mobileMenuOpen
-              ? "max-h-100 opacity-100 shadow-lg pointer-events-auto"
-              : "max-h-0 opacity-0 pointer-events-none"
-          }`}
-        >
-          <div className="px-4 py-3 space-y-1">
-            {[
-              { id: "dashboard", label: "Dashboard" },
-              { id: "kyc", label: "Get Verified" },
-              { id: "lender", label: "Lender" },
-              { id: "paypal-connect", label: "Connect PayPal" },
-              { id: "paypal-dashboard", label: "PayPal Dashboard" },
-            ].map((tab) => {
-              const isActive = page === tab.id;
-              return (
+            {/* DESKTOP TABS */}
+            <div className="hidden md:flex items-center gap-2">
+              {tabs.map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => {
-                    go(tab.id);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`w-full text-left px-4 py-3 text-sm font-semibold rounded-xl transition-all duration-150 ${
-                    isActive
-                      ? "bg-zinc-950 text-white translate-x-1"
-                      : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950 active:scale-[0.98]"
+                  onClick={() => go(tab.id)}
+                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
+                    page === tab.id
+                      ? "bg-black text-white shadow-sm"
+                      : "text-slate-600 hover:text-black hover:bg-white"
                   }`}
                 >
                   {tab.label}
                 </button>
-              );
-            })}
+              ))}
+            </div>
+          </div>
 
-            <div className="pt-2 border-t border-zinc-100 mt-2">
+          {/* RIGHT */}
+          <div className="flex items-center gap-3">
+
+            {/* MOBILE MENU BUTTON */}
+            <button
+              className="md:hidden w-10 h-10 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition"
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              aria-label="Open menu"
+            >
+              <MenuIcon />
+            </button>
+
+            {/* PROFILE BUTTON */}
+            <div className="relative">
               <button
-                onClick={() => {
-                  logout();
-                  setMobileMenuOpen(false);
-                }}
-                className="w-full text-left px-4 py-3 text-sm font-bold text-red-600 hover:bg-red-50 rounded-xl transition-all"
+                ref={profileButtonRef}
+                onClick={() => setProfileMenuOpen((prev) => !prev)}
+                className="
+                  h-11 pl-2.5 pr-3.5 rounded-full
+                  bg-white border border-slate-200
+                  shadow-[0_6px_18px_rgba(15,23,42,0.05)]
+                  flex items-center gap-2.5
+                  hover:bg-slate-50 transition-all duration-200
+                "
               >
-                Logout
+                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-semibold">
+                  {firstLetter}
+                </div>
+
+                <div className="hidden sm:flex flex-col items-start leading-none">
+                  <span className="text-[11px] uppercase tracking-[0.12em] text-slate-400 font-semibold">
+                    My Account
+                  </span>
+                  <span className="text-sm font-medium text-slate-800 flex items-center gap-1">
+                    Profile
+                    <ChevronDownIcon open={profileMenuOpen} />
+                  </span>
+                </div>
               </button>
+
+              {/* DROPDOWN */}
+              {profileMenuOpen && (
+                <div
+                  ref={profileMenuRef}
+                  className="
+                    dropdown-animate
+                    absolute right-0 top-[64px]
+                    w-[340px] sm:w-[360px]
+                    rounded-[24px]
+                    overflow-hidden
+                    glass-soft
+                    z-50
+                  "
+                >
+                  <div className="p-5">
+
+                    {/* HEADER */}
+                    <div className="flex items-start gap-4">
+                      <div className="w-14 h-14 rounded-2xl bg-black text-white flex items-center justify-center text-xl font-semibold shadow-sm">
+                        {firstLetter}
+                      </div>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[20px] font-semibold text-slate-900 leading-tight truncate">
+                          {userName}
+                        </div>
+                        <div className="text-sm text-slate-600 truncate mt-0.5">
+                          {userEmail}
+                        </div>
+                        <button className="mt-2 text-sm font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900 transition">
+                          Manage Account
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-slate-200 my-5" />
+
+                    {/* DETAILS */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <UserIcon />
+                          <span>Profile</span>
+                        </div>
+                        <span className="font-medium text-slate-900">
+                          {profileType}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <MailIcon />
+                          <span>Email</span>
+                        </div>
+                        <span className="font-medium text-slate-900 truncate max-w-[170px] text-right">
+                          {userEmail}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <IdIcon />
+                          <span>Settl ID</span>
+                        </div>
+                        <span className="font-medium text-slate-900">
+                          {displayUserId}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-2 text-slate-500">
+                          <ShieldIcon />
+                          <span>Status</span>
+                        </div>
+                        <span className="font-medium text-emerald-600">
+                          {accountStatus}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-slate-200 my-5" />
+
+                    {/* FEATURE CARD */}
+                    <div className="rounded-2xl bg-black text-white p-4 shadow-sm">
+                      <div className="text-sm font-semibold mb-1">
+                        AI Insights
+                      </div>
+                      <div className="text-xs text-white/70 leading-relaxed">
+                        Unlock financial intelligence and profile readiness signals.
+                      </div>
+                    </div>
+
+                    <div className="h-px bg-slate-200 my-5" />
+
+                    {/* LOGOUT */}
+                    <button
+                      onClick={logout}
+                      className="
+                        w-full flex items-center gap-3
+                        px-4 py-3 rounded-2xl
+                        text-red-600 hover:bg-red-50
+                        transition text-sm font-medium
+                      "
+                    >
+                      <LogoutIcon />
+                      Sign Out
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
-      </div>
+      </nav>
 
-      {/* ─── MAIN CONTENT ROUTER WITH PREMIUM TRANSITION ─── */}
-      <main className="max-w-7xl mx-auto px-4 py-8">
-        <div
-          key={page} // ✨ This key tells React to re-trigger the smooth fade animation every time the page swaps
-          className="animate-pageIn"
-        >
-          {page === "dashboard" && (
-            <Dashboard token={token} userId={userId} go={go} />
-          )}
+      {/* ================= MOBILE MENU ================= */}
+      {mobileMenuOpen && (
+        <div className="md:hidden px-4 pt-3 relative z-30">
+          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-3">
+            <div className="px-3 py-3 mb-2">
+              <div className="text-sm font-semibold text-slate-900 truncate">
+                {userName}
+              </div>
+              <div className="text-xs text-slate-500 truncate">{userEmail}</div>
+              <div className="text-[11px] text-slate-400 mt-1">
+                ID: {displayUserId}
+              </div>
+            </div>
 
-          {page === "kyc" && <KYC token={token} go={go} />}
+            <div className="space-y-1">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => go(tab.id)}
+                  className={`
+                    w-full text-left px-4 py-3 rounded-2xl text-sm font-medium transition
+                    ${
+                      page === tab.id
+                        ? "bg-black text-white"
+                        : "text-slate-700 hover:bg-slate-100"
+                    }
+                  `}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
 
-          {page === "lender" && <Lender />}
+            <div className="h-px bg-slate-200 my-3" />
 
-          {page === "paypal-connect" && <PayPalConnect go={go} />}
-
-          {page === "paypal-callback" && (
-            <PayPalCallback go={go} setUserId={setUserId} />
-          )}
-
-          {page === "paypal-success" && <PayPalSuccess go={go} />}
-
-          {page === "paypal-dashboard" && <PayPalDashboard />}
+            <button
+              onClick={logout}
+              className="w-full text-left px-4 py-3 rounded-2xl text-red-600 hover:bg-red-50 text-sm font-medium transition"
+            >
+              Sign Out
+            </button>
+          </div>
         </div>
+      )}
+
+      {/* ================= ROUTER ================= */}
+      <main className="w-full">
+        {page === "dashboard" && (
+          <Dashboard token={token} userId={displayUserId} go={go} />
+        )}
+        {page === "kyc" && <KYC token={token} go={go} />}
+        {page === "lender" && <Lender />}
+        {page === "bill-upload" && (
+          <BillUpload token={token} go={go} />
+        )}
+        {page === "paypal-connect" && <PayPalConnect go={go} />}
+        {page === "paypal-callback" && (
+          <PayPalCallback go={go} setUserId={setUserId} />
+        )}
+        {page === "paypal-success" && <PayPalSuccess go={go} />}
+        {page === "paypal-dashboard" && <PayPalDashboard />}
       </main>
     </div>
   );
 }
+``

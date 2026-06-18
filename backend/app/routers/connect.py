@@ -91,6 +91,10 @@ async def paypal_callback(code: str, state: str):
         db = get_supabase_admin()
 
         # ✅ ✅ ✅ FIXED UPSERT (NO DUPLICATES)
+        # 🆕 Added is_primary default to true if it's their first source
+        existing_sources = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
+        is_first_source = len(existing_sources.data) == 0
+
         db.table("connected_sources").upsert(
             {
                 "user_id": user_id,
@@ -101,6 +105,7 @@ async def paypal_callback(code: str, state: str):
                 "income_features": income_features,
                 "connected_at": datetime.utcnow().isoformat(),
                 "access_token_hash": str(hash(access_token)),
+                "is_primary": is_first_source, # 🆕 New field support
             },
             on_conflict="user_id,source"  # ✅ CRITICAL FIX
         ).execute()
@@ -144,6 +149,7 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
             "transaction_count": s.get("transaction_count"),
             "date_range_months": s.get("date_range_months"),
             "connected_at": s.get("connected_at"),
+            "is_primary": s.get("is_primary", False) # 🆕 Include in frontend payload
         })
 
     # ✅ Confidence calculation
@@ -158,3 +164,69 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
         "confidence_contribution": round(breadth * 0.40, 3),
         "source_count": source_count,
     }
+
+
+# ==========================================
+# 🆕 NEW ENDPOINTS FOR FRONTEND INCOME HUB
+# ==========================================
+
+# ✅ STEP 4 — Disconnect a source
+@router.delete("/{source_name}")
+async def disconnect_source(source_name: str, user: dict = Depends(get_current_user)):
+    user_id = user["sub"]
+    db = get_supabase_admin()
+
+    try:
+        # 1. Delete the specific source
+        db.table("connected_sources")\
+          .delete()\
+          .eq("user_id", user_id)\
+          .eq("source", source_name)\
+          .execute()
+
+        # 2. Update user stats to reflect the removal
+        sources = db.table("connected_sources").select("source").eq("user_id", user_id).execute()
+        
+        db.table("users").update({
+            "connected_source_count": len(sources.data),
+        }).eq("id", user_id).execute()
+
+        # 3. If they deleted their primary, randomly assign a new primary if one exists
+        if len(sources.data) > 0:
+            remaining_primary = db.table("connected_sources").select("id").eq("user_id", user_id).eq("is_primary", True).execute()
+            if len(remaining_primary.data) == 0:
+                first_source = sources.data[0]["source"]
+                db.table("connected_sources").update({"is_primary": True}).eq("user_id", user_id).eq("source", first_source).execute()
+
+        return {"status": "success", "message": f"{source_name.capitalize()} disconnected"}
+
+    except Exception as e:
+        print(f"🔥 DISCONNECT ERROR: {e}")
+        raise HTTPException(status_code=500, detail="Failed to disconnect source")
+
+
+# ✅ STEP 5 — Set a source as primary
+@router.patch("/{source_name}/primary")
+async def set_primary_source(source_name: str, user: dict = Depends(get_current_user)):
+    user_id = user["sub"]
+    db = get_supabase_admin()
+
+    try:
+        # 1. Set all sources for this user to NOT primary
+        db.table("connected_sources")\
+          .update({"is_primary": False})\
+          .eq("user_id", user_id)\
+          .execute()
+
+        # 2. Set the requested source to primary
+        db.table("connected_sources")\
+          .update({"is_primary": True})\
+          .eq("user_id", user_id)\
+          .eq("source", source_name)\
+          .execute()
+
+        return {"status": "success", "message": f"{source_name.capitalize()} set as primary"}
+
+    except Exception as e:
+        print(f"🔥 SET PRIMARY ERROR: {e}")
+        raise HTTPException(status_code=500, detail="Failed to set primary source")

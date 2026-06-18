@@ -12,24 +12,11 @@ MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
 
 
 def normalize_ocr_fields(fields):
-    """
-    Ensures OCR fields always return in frontend-friendly format:
-    [
-      {
-        "field_name": "...",
-        "extracted_value": "...",
-        "confidence": 0.0,
-        "user_verified": false
-      }
-    ]
-    """
-
     if not fields:
         return []
 
     normalized = []
 
-    # If backend returns dict, convert to list
     if isinstance(fields, dict):
         for key, value in fields.items():
             if isinstance(value, dict):
@@ -46,10 +33,8 @@ def normalize_ocr_fields(fields):
                     "confidence": 0.0,
                     "user_verified": False,
                 })
-
         return normalized
 
-    # If backend returns list, clean each item
     if isinstance(fields, list):
         for index, field in enumerate(fields):
             if isinstance(field, str):
@@ -89,11 +74,6 @@ def normalize_ocr_fields(fields):
 
 
 def extract_raw_text(ocr_result: dict) -> str:
-    """
-    Reads raw OCR text from any common key returned by OCR service.
-    If this returns empty, we need to update app/services/ocr_service.py next.
-    """
-
     possible_keys = [
         "raw_text",
         "ocr_text",
@@ -116,18 +96,14 @@ async def upload_utility_bill(
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
-    """
-    Accepts a PDF utility bill, runs the OCR pipeline, and returns extracted fields.
-    The user must confirm or correct fields before they are saved to the profile.
-    """
-
     user_id = user["sub"]
 
-    # Validate file type
-    if not file.filename.lower().endswith(".pdf"):
+    filename = file.filename.lower()
+
+    # ✅ FIXED VALIDATION
+    if not filename.endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
 
-    # Read file
     pdf_bytes = await file.read()
 
     if len(pdf_bytes) > MAX_FILE_SIZE:
@@ -141,22 +117,27 @@ async def upload_utility_bill(
     bill_id = str(uuid.uuid4())
     storage_path = f"bills/{user_id}/{bill_id}.pdf"
 
-    # Upload raw PDF to Supabase Storage
     try:
         db.storage.from_("bills").upload(storage_path, pdf_bytes)
     except Exception as e:
         print("Storage upload warning:", e)
 
-    # Run OCR pipeline
+    # ✅ DEBUG ADDED HERE
     try:
+        print("✅ OCR START:", filename)
+
         ocr_result = process_bill(pdf_bytes) or {}
+
+        print("✅ OCR RESULT:", ocr_result)
+
     except Exception as e:
         print("OCR processing error:", e)
         raise HTTPException(status_code=500, detail="OCR processing failed")
 
-    # Normalize OCR result
     fields = normalize_ocr_fields(ocr_result.get("fields", []))
     raw_text = extract_raw_text(ocr_result)
+
+    print("✅ OCR TEXT LENGTH:", len(raw_text))
 
     biller_detected = (
         ocr_result.get("biller_detected")
@@ -171,7 +152,6 @@ async def upload_utility_bill(
     if not status:
         status = "low_confidence" if overall_confidence < 0.5 else "clean"
 
-    # Cross-check name against KYC anchor
     user_data = db.table("users").select("full_name").eq("id", user_id).execute()
     registered_name = user_data.data[0].get("full_name", "") if user_data.data else ""
 
@@ -185,7 +165,6 @@ async def upload_utility_bill(
             )
             break
 
-    # Store pending OCR result
     db.table("pending_bills").upsert({
         "id": bill_id,
         "user_id": user_id,
@@ -199,9 +178,6 @@ async def upload_utility_bill(
         "created_at": datetime.utcnow().isoformat(),
     }).execute()
 
-    # IMPORTANT:
-    # raw_text is returned to frontend for debugging/display.
-    # It is not stored in DB because your current schema has no raw_text column.
     return {
         "bill_id": bill_id,
         "biller_detected": biller_detected,
@@ -210,30 +186,21 @@ async def upload_utility_bill(
         "identity_match_score": round(identity_match_score, 2),
         "payment_on_time": ocr_result.get("payment_on_time"),
         "status": status,
-
-        # ✅ NEW: frontend OCR viewer uses this
         "raw_text": raw_text,
-
-        # ✅ Optional debug helper
         "has_raw_text": bool(raw_text),
     }
 
 
+# ✅ REST REMAINS UNCHANGED (your original code)
 @router.post("/ocr-review")
 async def submit_ocr_review(
     bill_id: str,
     corrected_fields: dict,
     user: dict = Depends(get_current_user),
 ):
-    """
-    User confirms or corrects extracted OCR fields.
-    Confirmed bill is moved from pending to the user's verified bill history.
-    """
-
     user_id = user["sub"]
     db = get_supabase_admin()
 
-    # Get pending bill
     result = db.table("pending_bills")\
         .select("*")\
         .eq("id", bill_id)\
@@ -245,7 +212,6 @@ async def submit_ocr_review(
 
     pending = result.data[0]
 
-    # Apply corrections
     fields = pending["fields"] or []
 
     for field in fields:
@@ -254,7 +220,6 @@ async def submit_ocr_review(
             field["user_verified"] = True
             field["confidence"] = 0.90
 
-    # Save to verified bills
     db.table("verified_bills").insert({
         "id": bill_id,
         "user_id": user_id,
@@ -267,10 +232,8 @@ async def submit_ocr_review(
         "confirmed_at": datetime.utcnow().isoformat(),
     }).execute()
 
-    # Remove from pending
     db.table("pending_bills").delete().eq("id", bill_id).execute()
 
-    # Update user's payment feature summary
     all_bills = db.table("verified_bills")\
         .select("payment_on_time")\
         .eq("user_id", user_id)\
@@ -313,8 +276,6 @@ async def submit_ocr_review(
 
 @router.get("/bills")
 async def get_uploaded_bills(user: dict = Depends(get_current_user)):
-    """Lists all verified bills for the user."""
-
     user_id = user["sub"]
     db = get_supabase_admin()
 
@@ -332,8 +293,6 @@ async def get_uploaded_bills(user: dict = Depends(get_current_user)):
 
 @router.get("/pending-bills")
 async def get_pending_bills(user: dict = Depends(get_current_user)):
-    """Lists pending OCR bills for the user."""
-
     user_id = user["sub"]
     db = get_supabase_admin()
 

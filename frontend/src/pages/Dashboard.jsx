@@ -3,11 +3,67 @@ import axios from "axios";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
+// --- Minimalist SVG Icons ---
+const Icons = {
+  Wallet: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 12V7H5a2 2 0 0 1 0-4h14v4" />
+      <path d="M3 5v14a2 2 0 0 0 2 2h16v-5" />
+      <path d="M18 12a2 2 0 0 0 0 4h4v-4Z" />
+    </svg>
+  ),
+  Document: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
+    </svg>
+  ),
+  Trending: () => (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="23 6 13.5 15.5 8.5 10.5 1 18" />
+      <polyline points="17 6 23 6 23 12" />
+    </svg>
+  ),
+  Shield: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  ),
+  Refresh: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 2v6h-6"></path>
+      <path d="M3 12a9 9 0 0 1 15-6.7L21 8"></path>
+      <path d="M3 22v-6h6"></path>
+      <path d="M21 12a9 9 0 0 1-15 6.7L3 16"></path>
+    </svg>
+  ),
+  Trash: () => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"></polyline>
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+    </svg>
+  ),
+  Plus: () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"></line>
+      <line x1="5" y1="12" x2="19" y2="12"></line>
+    </svg>
+  )
+};
+
 export default function Dashboard({ token, userId, go }) {
   const [score, setScore] = useState(null);
   const [loading, setLoading] = useState(false);
   const [sourcesLoading, setSourcesLoading] = useState(true);
   const [error, setError] = useState("");
+
+  // States for the inline source actions
+  const [syncingId, setSyncingId] = useState(null);
+  const [disconnectingId, setDisconnectingId] = useState(null);
 
   const [file, setFile] = useState(null);
   const [ocrResult, setOcrResult] = useState(null);
@@ -20,27 +76,54 @@ export default function Dashboard({ token, userId, go }) {
 
   useEffect(() => {
     loadSources();
+    // Assuming you might want to fetch the existing score on load too
+    // fetchScore(); 
   }, []);
 
   const loadSources = async () => {
     setSourcesLoading(true);
-
     try {
       const res = await axios.get(`${API}/api/connect/sources`, { headers });
       setSources(res.data.sources || []);
     } catch (e) {
       console.error("Failed to load sources", e);
     }
-
     setSourcesLoading(false);
   };
 
   const paypal = sources.find((s) => s.source === "paypal");
 
+  // --- NEW: Inline Sync & Disconnect Logic ---
+  const handleSyncSource = async (sourceId) => {
+    setSyncingId(sourceId);
+    try {
+      // Calls your compute endpoint to refresh backend data
+      await axios.post(`${API}/api/score/compute`, {}, { headers });
+      await loadSources(); // Reload data to show fresh counts
+    } catch (err) {
+      console.error("Sync failed", err);
+    }
+    setSyncingId(null);
+  };
+
+  const handleDisconnectSource = async (sourceId) => {
+    if (!window.confirm("Are you sure you want to disconnect this income source?")) return;
+    
+    setDisconnectingId(sourceId);
+    try {
+      // Calls the DELETE endpoint we built in FastAPI
+      await axios.delete(`${API}/api/connect/${sourceId}`, { headers });
+      setSources(sources.filter((s) => s.source !== sourceId));
+    } catch (err) {
+      console.error("Disconnect failed", err);
+    }
+    setDisconnectingId(null);
+  };
+  // ------------------------------------------
+
   const computeScore = async () => {
     setLoading(true);
     setError("");
-
     try {
       await axios.post(`${API}/api/score/compute`, {}, { headers });
       const res = await axios.get(`${API}/api/score/result`, { headers });
@@ -49,13 +132,11 @@ export default function Dashboard({ token, userId, go }) {
       console.error("Score error:", e);
       setError(e.response?.data?.detail || "Could not compute score");
     }
-
     setLoading(false);
   };
 
   const uploadBill = async () => {
     if (!file) return;
-
     setUploading(true);
     setError("");
 
@@ -64,110 +145,37 @@ export default function Dashboard({ token, userId, go }) {
       form.append("file", file);
 
       const res = await axios.post(`${API}/api/ingest/utility-bill`, form, {
-        headers: {
-          ...headers,
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { ...headers, "Content-Type": "multipart/form-data" },
       });
-
-      console.log("OCR RESPONSE FROM BACKEND:", res.data);
-
-      if (res.data?.fields) {
-        console.table(res.data.fields);
-      } else {
-        console.warn("No fields returned from OCR response");
-      }
 
       setOcrResult(res.data);
     } catch (e) {
-      console.error("UPLOAD ERROR:", e);
-      console.error("UPLOAD BACKEND RESPONSE:", e.response?.data);
       setError(e.response?.data?.detail || "Upload failed");
     } finally {
       setUploading(false);
     }
   };
 
-  const bandColor = (band) => {
-    if (!band) return "text-zinc-400";
-    if (band === "excellent") return "text-emerald-600";
-    if (band === "good") return "text-emerald-600";
-    if (band === "fair") return "text-yellow-600";
-    return "text-red-600";
-  };
-
-  const normalizeCategories = (categories) => {
-    if (!categories) return [];
-
-    if (Array.isArray(categories)) return categories;
-
-    if (typeof categories === "object") {
-      return Object.entries(categories).map(([category, value]) => ({
-        category,
-        score: typeof value === "number" ? value : Number(value) || 0,
-      }));
-    }
-
-    return [];
-  };
-
   const normalizeOcrFields = (fields) => {
     if (!fields) return [];
-
     if (Array.isArray(fields)) {
-      return fields.map((field, index) => {
-        if (typeof field === "string") {
-          return {
-            field_name: `field_${index + 1}`,
-            extracted_value: field,
-            confidence: undefined,
-          };
-        }
-
-        return {
-          field_name:
-            field.field_name ||
-            field.name ||
-            field.key ||
-            field.label ||
-            `field_${index + 1}`,
-          extracted_value:
-            field.extracted_value ??
-            field.value ??
-            field.text ??
-            field.result ??
-            "",
-          confidence: field.confidence,
-        };
-      });
+      return fields.map((field, index) => ({
+        field_name: field.field_name || field.name || field.key || `field_${index + 1}`,
+        extracted_value: field.extracted_value ?? field.value ?? field.text ?? "",
+        confidence: field.confidence,
+      }));
     }
-
     if (typeof fields === "object") {
       return Object.entries(fields).map(([key, value]) => ({
         field_name: key,
-        extracted_value:
-          typeof value === "object" && value !== null
-            ? (value.extracted_value ?? value.value ?? JSON.stringify(value))
-            : value,
-        confidence:
-          typeof value === "object" && value !== null
-            ? value.confidence
-            : undefined,
+        extracted_value: typeof value === "object" && value !== null ? (value.extracted_value ?? value.value) : value,
+        confidence: typeof value === "object" && value !== null ? value.confidence : undefined,
       }));
     }
-
     return [];
   };
 
-  const categories = normalizeCategories(score?.categories);
   const extractedFields = normalizeOcrFields(ocrResult?.fields);
-
-  const rawOcrText =
-    ocrResult?.raw_text ||
-    ocrResult?.ocr_text ||
-    ocrResult?.text ||
-    ocrResult?.raw ||
-    "";
 
   const profileCompletion = () => {
     let completed = 0;
@@ -180,607 +188,262 @@ export default function Dashboard({ token, userId, go }) {
   const completion = profileCompletion();
 
   return (
-    <div className="max-w-6xl mx-auto px-4 space-y-8 font-sans text-zinc-900">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
-          <div className="text-zinc-400 text-xs font-semibold tracking-wider mb-2 uppercase">
-            SETTL FINANCIAL PROFILE
-          </div>
+    <div className="w-full min-h-[calc(100vh-80px)] bg-slate-50 relative overflow-hidden font-sans text-slate-800 p-4 md:p-8 flex items-start justify-center">
+      
+      {/* Subtle Data-Viz Background Blobs */}
+      <div className="absolute top-[-10%] left-[-5%] w-[40%] h-[40%] bg-blue-200/40 rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-indigo-200/30 rounded-full blur-[100px] pointer-events-none" />
 
-          <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-zinc-900">
-            Welcome Back!
-          </h1>
+      {/* MAIN APP CONTAINER */}
+      <div className="relative w-full max-w-[1280px] bg-white/70 backdrop-blur-2xl border border-white/90 shadow-[0_4px_40px_-10px_rgba(0,0,0,0.05)] rounded-[2rem] p-8 md:p-12 overflow-hidden flex flex-col gap-10">
+        
+        {/* Top Section: Score & Completion Arc */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+          
+          {/* Left: Score Overview */}
+          <div className="flex flex-col justify-center">
+            <div className="flex items-center gap-2 text-xs text-slate-500 font-semibold uppercase tracking-widest mb-4">
+              <span>Financial Profile</span>
+              <span className="text-slate-300">•</span>
+              <span className="text-blue-600">Overview</span>
+            </div>
+            
+            <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-slate-900 mb-6">
+              {score ? "Credit Profile" : "Welcome Back"}
+            </h1>
 
-          <p className="text-zinc-500 mt-2 max-w-xl text-sm leading-relaxed">
-            Your alternative credit profile is built from verified digital
-            income, utility payment behavior, and identity-linked financial
-            signals.
-          </p>
-        </div>
-
-        <div className="bg-white border border-zinc-200 shadow-sm rounded-2xl p-4 min-w-55">
-          <div className="text-xs text-zinc-400 font-medium tracking-wider mb-1 uppercase">
-            PROFILE COMPLETION
-          </div>
-
-          <div className="flex items-end justify-between mb-2">
-            <div className="text-3xl font-bold text-zinc-900">
-              {completion}%
+            {/* Quick Status Pills */}
+            <div className="flex flex-wrap gap-3 mb-8">
+              <div className="px-3 py-1.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs font-semibold text-slate-700 flex items-center gap-2 shadow-sm">
+                <span className={`w-2 h-2 rounded-full ${paypal ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></span>
+                PayPal: {paypal ? 'Active' : 'Pending'}
+              </div>
+              <div className="px-3 py-1.5 bg-white/80 rounded-lg border border-slate-200/60 text-xs font-semibold text-slate-700 flex items-center gap-2 shadow-sm">
+                <span className={`w-2 h-2 rounded-full ${ocrResult ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]' : 'bg-slate-300'}`}></span>
+                Utility Data: {ocrResult ? 'Verified' : 'Pending'}
+              </div>
             </div>
 
-            <div className="text-xs text-zinc-400">verified</div>
-          </div>
-
-          <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-            <div
-              className="h-full bg-zinc-900 rounded-full transition-all duration-700"
-              style={{ width: `${completion}%` }}
-            />
-          </div>
-        </div>
-      </div>
-
-      {/* Top status cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 max-w-7xl mx-auto mt-8">
-        <div className="md:col-span-2 opacity-0 animate-card-1 will-change-transform">
-          <StatusCard
-            title="Credit Score"
-            label={score ? "Calculated" : "Not calculated"}
-            value={score ? score.score : "Pending"}
-            color={score ? "emerald" : "gray"}
-            icon="⚡"
-            isFeatured={true} // ✨ Triggers the high-contrast midnight UI code
-          />
-        </div>
-        <div className="opacity-0 animate-card-1 will-change-transform">
-          <StatusCard
-            title="PayPal"
-            label={paypal ? "Connected" : "Not connected"}
-            value={paypal ? "Active" : "Pending"}
-            color={paypal ? "emerald" : "blue"}
-            icon="💰"
-          />
-        </div>
-        <div className="opacity-0 animate-card-2 will-change-transform">
-          <StatusCard
-            title="Utility Bill"
-            label={ocrResult ? "Uploaded" : "Not uploaded"}
-            value={ocrResult ? "Verified" : "Pending"}
-            color={ocrResult ? "emerald" : "yellow"}
-            icon="🧾"
-          />
-        </div>
-      </div>
-      {/* Main layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* PayPal panel */}
-          <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm opacity-0 animate-card-3 will-change-transform">
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div>
-                <div className="text-zinc-400 text-xs font-medium tracking-wider mb-2 uppercase">
-                  STEP 2 · INCOME SOURCE
-                </div>
-
-                <h2 className="text-xl font-bold text-zinc-900 tracking-tight">
-                  PayPal Integration
-                </h2>
-
-                <p className="text-zinc-500 text-sm mt-1 leading-relaxed">
-                  Used to analyse freelance income, transaction history, and
-                  earning consistency.
-                </p>
+            {/* Main Score Display */}
+            <div className="mt-4">
+              <div className="text-7xl md:text-8xl font-light tracking-tighter text-slate-900 mb-2 font-mono">
+                {score ? score.score : <span className="text-slate-300">---</span>}
               </div>
+              <div className="text-sm font-medium text-slate-500 flex items-center gap-3">
+                Calculated Settl Score 
+                {score && (
+                  <span className="px-2.5 py-1 bg-slate-900 text-white rounded-md text-[10px] uppercase tracking-widest font-bold shadow-sm">
+                    {score.band}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
 
-              <button
-                onClick={loadSources}
-                className="text-xs px-3 py-2 rounded-lg border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:border-zinc-400 transition"
-              >
-                Refresh
-              </button>
+          {/* Right: Top Stats & Arc */}
+          <div className="flex flex-col">
+            <div className="grid grid-cols-3 gap-4 mb-8 bg-white/50 p-4 rounded-2xl border border-white/80 shadow-sm">
+              <TopStat label="Confidence" value={score ? `${(score.confidence * 100).toFixed(0)}%` : "0%"} />
+              <TopStat label="Active Sources" value={sources.length} />
+              <TopStat label="Data Completion" value={`${completion}%`} highlight />
             </div>
 
-            {sourcesLoading ? (
-              <div className="text-zinc-400 text-sm">
-                Loading PayPal status...
-              </div>
-            ) : paypal ? (
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <MetricCard
-                  label="Account"
-                  value={paypal.account_name || "PayPal user"}
-                />
-
-                <MetricCard
-                  label="Transactions"
-                  value={paypal.transaction_count ?? 0}
-                />
-
-                <MetricCard
-                  label="Active Months"
-                  value={paypal.date_range_months ?? 0}
-                />
-
-                <div className="sm:col-span-3 mt-2 p-4 rounded-xl bg-emerald-50 border border-emerald-100">
-                  <div className="text-emerald-700 text-sm font-medium">
-                    ✅ PayPal already connected
-                  </div>
-
-                  <div className="text-zinc-500 text-xs mt-1">
-                    This income source will be included when calculating your
-                    score.
-                  </div>
+            {/* Progress Arc Visualization */}
+            <div className="flex-1 flex flex-col items-center justify-center relative pt-4">
+              <div className="relative w-64 h-32 overflow-hidden">
+                <svg className="w-full h-full" viewBox="0 0 100 50">
+                  <path d="M 10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
+                  <path 
+                    d="M 10 50 A 40 40 0 0 1 90 50" 
+                    fill="none" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round"
+                    strokeDasharray="125.6" strokeDashoffset={125.6 - (125.6 * completion) / 100}
+                    className="transition-all duration-1000 ease-out"
+                  />
+                </svg>
+                <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center text-center">
+                  <span className="text-3xl font-bold text-slate-900 font-mono">{completion}%</span>
+                  <span className="text-[10px] font-semibold tracking-widest uppercase text-slate-400 mt-1">Profile Verified</span>
                 </div>
               </div>
-            ) : (
-              /* PRESERVED YELLOW THEME CONTAINER */
-              <div className="p-5 rounded-xl bg-yellow-400/5 border border-yellow-400/20">
-                <div className="text-yellow-600 font-mono text-sm mb-2">
-                  ⚠️ PayPal not connected
-                </div>
-
-                <p className="text-gray-400 text-sm mb-4">
-                  Connect PayPal to improve your score confidence and income
-                  stability analysis.
-                </p>
-
-                <button
-                  onClick={() => go && go("paypal-connect")}
-                  className="flex items-center gap-2 px-8 py-3 rounded-xl bg-[#003087]  font-bold hover:bg-[#002060] transition text-white"
-                >
-                  <span>Connect PayPal </span>
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                    <path
-                      d="M7.5 21H3L6 3h7c2.5 0 5 1.5 4.5 5C17 10.5 14 12 11.5 12H9L7.5 21Z"
-                      fill="#009cde"
-                    ></path>
-                    <path
-                      d="M10.5 21H6L9 3h7c2.5 0 5 1.5 4.5 5C20 10.5 17 12 14.5 12H12L10.5 21Z"
-                      fill="#012169"
-                      opacity="0.8"
-                    ></path>
-                  </svg>
-                </button>
-              </div>
-            )}
+            </div>
           </div>
+        </div>
 
-          {/* Upload bill */}
-          <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm opacity-0 animate-card-4 will-change-transform">
-            <div className="text-zinc-400 text-xs font-medium tracking-wider mb-2 uppercase">
-              STEP 3 · UTILITY BILL
+        {/* Bottom Section: Split Layout */}
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-8 mt-4">
+          
+          {/* Bottom Left: Data Sources List */}
+          <div className="lg:col-span-3 bg-white/50 backdrop-blur-md rounded-3xl border border-slate-200/60 p-6 md:p-8 shadow-sm">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="font-bold text-lg text-slate-900 tracking-tight">Data Sources & Analysis</h3>
             </div>
 
-            <h2 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
-              Upload a utility bill
-            </h2>
-
-            <p className="text-zinc-500 text-sm mb-5 leading-relaxed">
-              Upload a CEB, Dialog, Water Board, or similar bill. Settl extracts
-              payment behavior using OCR.
-            </p>
-
-            <div
-              onClick={() => document.getElementById("billInput").click()}
-              className="border-2 border-dashed border-zinc-200 rounded-2xl p-10 text-center cursor-pointer hover:border-zinc-900 hover:bg-zinc-50 transition"
-            >
-              {file ? (
-                <div>
-                  <div className="text-4xl mb-3">📄</div>
-
-                  <div className="text-zinc-900 font-medium text-sm">
-                    {file.name} ✓
+            <div className="space-y-4">
+              
+              {/* === INLINE PAYPAL CARD === */}
+              <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200 shadow-sm transition hover:border-slate-300 group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center group-hover:bg-blue-50 group-hover:text-blue-600 transition-colors">
+                    <Icons.Wallet />
                   </div>
-
-                  <div className="text-zinc-400 text-xs mt-1">
-                    Ready to extract bill data
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">PayPal Integration</div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {paypal ? `Active · ${paypal.transaction_count || 0} transactions analyzed` : 'Pending Authorization'}
+                    </div>
                   </div>
                 </div>
-              ) : (
-                <div>
-                  <div className="text-4xl mb-3">⬆️</div>
-
-                  <div className="text-zinc-600 font-medium">
-                    Click to select a PDF bill
-                  </div>
-
-                  <div className="text-zinc-400 text-xs mt-1">
-                    PDF only · OCR enabled · encrypted processing
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <input
-              id="billInput"
-              type="file"
-              accept=".pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files[0])}
-            />
-
-            <button
-              onClick={uploadBill}
-              disabled={!file || uploading}
-              className="w-full mt-4 p-4 bg-zinc-900 text-white font-semibold rounded-xl hover:bg-zinc-800 transition disabled:opacity-50 tracking-wide"
-            >
-              {uploading ? "Extracting bill data..." : "Extract bill data →"}
-            </button>
-          </div>
-
-          {/* OCR result viewer */}
-          {ocrResult && (
-            <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm">
-              <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-4 mb-6">
-                <div>
-                  <div className="text-zinc-400 text-xs font-medium tracking-wider mb-1 uppercase">
-                    OCR RESULT
-                  </div>
-
-                  <h2 className="text-2xl font-bold text-zinc-900 tracking-tight">
-                    {ocrResult.biller_detected ||
-                      ocrResult.biller ||
-                      ocrResult.provider ||
-                      "Unknown biller"}
-                  </h2>
-
-                  <p className="text-zinc-500 text-sm mt-1">
-                    Review the extracted fields and raw OCR text below.
-                  </p>
-                </div>
-
-                <div className="text-left sm:text-right">
-                  <div className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
-                    CONFIDENCE
-                  </div>
-
-                  <div className="text-zinc-900 text-2xl font-bold tracking-tight">
-                    {ocrResult.overall_confidence !== undefined &&
-                    ocrResult.overall_confidence !== null
-                      ? `${(Number(ocrResult.overall_confidence) * 100).toFixed(0)}%`
-                      : "—"}
-                  </div>
-                </div>
-              </div>
-
-              {/* Extracted fields */}
-              <div className="mb-6">
-                <div className="text-xs text-zinc-400 font-medium tracking-wider mb-3 uppercase">
-                  EXTRACTED FIELDS
-                </div>
-
-                {extractedFields.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {extractedFields.map((f, index) => (
-                      <div
-                        key={`${f.field_name}-${index}`}
-                        className="p-4 bg-zinc-50 rounded-xl border border-zinc-200"
-                      >
-                        <div className="text-zinc-400 text-xs font-medium tracking-wider mb-1 uppercase">
-                          {(f.field_name || "unknown field").replace(/_/g, " ")}
-                        </div>
-
-                        <div className="text-zinc-900 text-sm font-medium wrap-break-word">
-                          {f.extracted_value !== undefined &&
-                          f.extracted_value !== null &&
-                          String(f.extracted_value).trim() !== ""
-                            ? String(f.extracted_value)
-                            : "Not detected"}
-                        </div>
-
-                        {f.confidence !== undefined &&
-                          f.confidence !== null && (
-                            <div className="text-xs text-emerald-600 mt-2 font-medium">
-                              Confidence:{" "}
-                              {(Number(f.confidence) * 100).toFixed(0)}%
-                            </div>
-                          )}
-                      </div>
-                    ))}
-                  </div>
+                
+                {/* Actions Area */}
+                {!paypal ? (
+                  <button onClick={() => go && go("paypal-connect")} className="px-5 py-2 bg-slate-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-slate-800 transition shadow-sm">
+                    Connect
+                  </button>
                 ) : (
-                  /* PRESERVED YELLOW THEME CONTAINER */
-                  <div className="p-4 bg-yellow-400/5 border border-yellow-400/20 rounded-xl text-yellow-400 text-sm">
-                    No structured fields were detected. Check the raw OCR text
-                    below.
+                  <div className="flex items-center gap-2">
+                    {/* Sync Button */}
+                    <button 
+                      onClick={() => handleSyncSource("paypal")}
+                      disabled={syncingId === "paypal"}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-[10px] font-bold uppercase tracking-widest rounded-md transition-colors"
+                    >
+                      <div className={syncingId === "paypal" ? "animate-spin text-blue-600" : ""}>
+                        <Icons.Refresh />
+                      </div>
+                      Sync
+                    </button>
+                    {/* Disconnect Button */}
+                    <button 
+                      onClick={() => handleDisconnectSource("paypal")}
+                      disabled={disconnectingId === "paypal"}
+                      className="p-1.5 border border-transparent text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-md transition-colors"
+                      title="Disconnect PayPal"
+                    >
+                      {disconnectingId === "paypal" ? (
+                        <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-0.5"></div>
+                      ) : (
+                        <Icons.Trash />
+                      )}
+                    </button>
                   </div>
                 )}
               </div>
 
-              {/* Raw OCR text */}
-              <div>
-                <div className="text-xs text-zinc-400 font-medium tracking-wider mb-3 uppercase">
-                  RAW OCR TEXT
-                </div>
+              {/* ADD NEW SOURCE BUTTON */}
+              <button 
+                onClick={() => go && go("paypal-connect")} // Triggers your connection flow
+                className="w-full flex items-center justify-center gap-2 p-3 bg-transparent border-2 border-dashed border-slate-200 text-slate-500 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50/30 rounded-2xl transition-all text-xs font-bold uppercase tracking-widest"
+              >
+                <Icons.Plus /> Add Income Source
+              </button>
+              
+              <div className="h-px bg-slate-100 my-2"></div>
 
-                <div className="max-h-72 overflow-y-auto p-4 bg-zinc-50 border border-zinc-200 rounded-xl">
-                  <pre className="text-zinc-700 text-xs whitespace-pre-wrap font-sans leading-relaxed">
-                    {rawOcrText || "No raw OCR text returned from backend."}
-                  </pre>
+              {/* OCR Results List Item */}
+              <div className="flex flex-col p-4 bg-white rounded-2xl border border-slate-100 shadow-[0_2px_10px_-4px_rgba(0,0,0,0.05)] transition hover:border-slate-300 group">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                      <Icons.Document />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-slate-900 text-sm">Utility Bill Extraction</div>
+                      <div className="text-xs text-slate-500 mt-0.5">{ocrResult ? 'Data structured successfully' : 'Awaiting document upload'}</div>
+                    </div>
+                  </div>
+                  {ocrResult && (
+                    <span className="flex items-center gap-1 text-emerald-600 text-[10px] font-bold uppercase tracking-wider bg-emerald-50 px-2 py-1 rounded-md">
+                      <Icons.Shield /> Verified
+                    </span>
+                  )}
                 </div>
+                
+                {extractedFields.length > 0 && (
+                  <div className="mt-2 ml-16 grid grid-cols-2 gap-y-3 gap-x-4 border-t border-slate-100 pt-3">
+                    {extractedFields.slice(0, 4).map((f, idx) => (
+                      <div key={idx} className="flex flex-col">
+                        <span className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">{f.field_name.replace(/_/g, " ")}</span>
+                        <span className="text-sm font-medium text-slate-800 truncate mt-0.5">{f.extracted_value}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              {/* Full debug JSON */}
-              <details className="mt-5">
-                <summary className="cursor-pointer text-xs text-zinc-400 font-medium hover:text-zinc-900 transition">
-                  SHOW FULL OCR JSON DEBUG
-                </summary>
-
-                <pre className="mt-3 max-h-72 overflow-y-auto p-4 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-700 text-xs whitespace-pre-wrap font-sans">
-                  {JSON.stringify(ocrResult, null, 2)}
-                </pre>
-              </details>
             </div>
-          )}
-        </div>
-
-        {/* Right column */}
-        <div className="space-y-6">
-          {/* Score action */}
-          <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm sticky top-6 opacity-0 animate-card-4 will-change-transform">
-            <div className="text-zinc-400 text-xs font-medium tracking-wider mb-2 uppercase">
-              STEP 4 · SCORE
-            </div>
-
-            <h2 className="text-xl font-bold text-zinc-900 tracking-tight mb-2">
-              Calculate your score
-            </h2>
-
-            <p className="text-zinc-500 text-sm mb-5 leading-relaxed">
-              Your score will combine connected sources, bill history, and
-              identity consistency.
-            </p>
-
-            {error && (
-              <div className="mb-4 text-red-600 text-sm p-3 rounded-xl bg-red-50 border border-red-100">
-                {error}
-              </div>
-            )}
-
-            <button
-              onClick={computeScore}
-              disabled={loading}
-              className="w-full p-4 bg-zinc-900 text-white font-semibold rounded-xl hover:bg-zinc-800 transition disabled:opacity-50 tracking-wide"
-            >
-              {loading ? "Calculating..." : "Calculate my score →"}
-            </button>
           </div>
 
-          {/* Score result */}
-          {score && (
-            <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm">
-              <div className="text-center mb-6">
-                <div className="text-xs text-zinc-400 font-medium tracking-wider mb-2 uppercase">
-                  YOUR CREDIT SCORE
-                </div>
+          {/* Bottom Right: Quick Operations Panel */}
+          <div className="lg:col-span-2 bg-[#0b132b] p-6 md:p-8 rounded-3xl border border-slate-800 shadow-2xl relative overflow-hidden flex flex-col justify-between">
+            
+            <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-[80px] pointer-events-none -translate-y-1/2 translate-x-1/4"></div>
 
-                <div className="text-7xl font-bold tracking-tight text-zinc-900">
-                  {score.score}
-                </div>
-
-                <div
-                  className={`text-xl font-bold mt-2 capitalize ${bandColor(score.band)}`}
-                >
-                  {score.band}
-                </div>
-
-                <div className="text-zinc-400 text-xs mt-2 font-medium tracking-wide">
-                  300 ──── {score.score} ──── 850
-                </div>
+            <div>
+              <div className="flex justify-between items-center mb-8 relative z-10">
+                <h3 className="font-semibold text-white tracking-tight">Quick Actions</h3>
               </div>
 
-              <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200 mb-5">
-                <div className="text-xs text-zinc-400 font-medium tracking-wider uppercase">
-                  Confidence
-                </div>
-
-                <div className="text-2xl font-bold text-zinc-900 mt-0.5">
-                  {(score.confidence * 100).toFixed(0)}%
-                </div>
-
-                <div className="h-2 bg-zinc-200 rounded-full overflow-hidden mt-3">
-                  <div
-                    className="h-full bg-zinc-900 rounded-full"
-                    style={{ width: `${score.confidence * 100}%` }}
-                  />
-                </div>
-              </div>
-
-              {categories.length > 0 && (
-                <div className="space-y-3">
-                  <div className="text-xs text-zinc-400 font-medium tracking-wider mb-2 uppercase">
-                    SCORE BREAKDOWN
+              <div className="space-y-5 relative z-10">
+                
+                {/* Upload Action */}
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 backdrop-blur-md">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3">Step 1: Utility Document</div>
+                  <input id="billInput" type="file" accept=".pdf" className="hidden" onChange={(e) => setFile(e.target.files[0])} />
+                  
+                  <div className="flex flex-col gap-2">
+                    <button 
+                      onClick={() => document.getElementById("billInput").click()}
+                      className="w-full bg-slate-800/50 hover:bg-slate-800 border border-slate-700 text-slate-300 text-sm font-medium py-3 rounded-xl transition truncate px-4 text-left flex justify-between items-center"
+                    >
+                      {file ? file.name : "Select PDF Document..."}
+                      <span className="text-slate-500 text-xs border border-slate-600 rounded px-2 py-0.5">Browse</span>
+                    </button>
+                    <button 
+                      onClick={uploadBill}
+                      disabled={!file || uploading}
+                      className="w-full bg-blue-600 hover:bg-blue-500 disabled:bg-slate-700 disabled:text-slate-500 text-white text-sm font-bold tracking-wide py-3 rounded-xl transition mt-1"
+                    >
+                      {uploading ? "Extracting Data..." : "Run Extraction"}
+                    </button>
                   </div>
-
-                  {categories.map((c) => (
-                    <div key={c.category}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-zinc-500 capitalize">
-                          {c.category.replace(/_/g, " ")}
-                        </span>
-
-                        <span className="text-zinc-900 font-semibold">
-                          {Number(c.score).toFixed(0)}%
-                        </span>
-                      </div>
-
-                      <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-zinc-900 rounded-full"
-                          style={{ width: `${Number(c.score)}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
+                  {error && <div className="text-red-400 text-xs mt-3 font-medium bg-red-400/10 p-2 rounded">{error}</div>}
                 </div>
-              )}
+
+                {/* Calculate Action */}
+                <div className="bg-white/[0.03] border border-white/10 rounded-2xl p-5 backdrop-blur-md">
+                  <div className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mb-3">Step 2: Generate Engine</div>
+                  <button 
+                    onClick={computeScore}
+                    disabled={loading}
+                    className="w-full bg-white text-slate-900 font-bold tracking-wide py-3.5 rounded-xl hover:bg-slate-100 transition disabled:opacity-70 flex justify-center items-center gap-2 shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                  >
+                    {loading ? "Processing Algebra..." : "Calculate Final Score"}
+                  </button>
+                </div>
+
+              </div>
             </div>
-          )}
+
+            <div className="flex items-center justify-center gap-2 text-[10px] text-slate-500 font-semibold uppercase tracking-widest mt-8 relative z-10 border-t border-white/10 pt-4">
+              <Icons.Shield />
+              Powered by Settl Engine
+            </div>
+          </div>
+
         </div>
       </div>
-
-      {/* Insights */}
-      {score && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {score.top_positive_factors?.length > 0 && (
-            <InsightPanel
-              title="✓ What helped"
-              color="emerald"
-              items={score.top_positive_factors}
-              type="positive"
-            />
-          )}
-
-          {score.top_negative_factors?.length > 0 && (
-            <InsightPanel
-              title="↓ What held it back"
-              color="red"
-              items={score.top_negative_factors}
-              type="negative"
-            />
-          )}
-
-          {score.improvement_tips?.length > 0 && (
-            /* PRESERVED YELLOW THEME CONTAINER FOR TIPS BANNERS */
-            <div className="p-6 bg-gray-900 rounded-2xl border border-gray-800">
-              <div className="text-yellow-400 text-sm font-mono mb-4">
-                💡 IMPROVEMENT TIPS
-              </div>
-
-              <div className="space-y-3">
-                {score.improvement_tips.map((t) => (
-                  <div key={t.feature} className="p-4 bg-gray-800 rounded-xl">
-                    <div className="text-sm font-bold text-white">
-                      {t.heading}
-                    </div>
-
-                    <div className="text-xs text-gray-400 mt-1">{t.body}</div>
-
-                    <div className="text-xs text-emerald-400 font-mono mt-2">
-                      {t.estimated_gain}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
 
-function StatusCard({ title, label, value, color, icon, isFeatured = false }) {
-  // If it's the featured card (like Credit Score), it gets a solid midnight canvas
-  if (isFeatured) {
-    return (
-      <div className="p-6 rounded-2xl border border-zinc-800 relative overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lg flex flex-col justify-between min-h-40 bg-linear-to-br from-zinc-800 via-zinc-950 to-black shadow-[0_4px_24px_-4px_rgba(9,9,11,0.2)]">
-        {/* Subtle Inner Glow Ray Effect */}
-        <div className="absolute top-0 left-0 right-0 h-px bg-linear-to-r from-transparent via-zinc-700/40 to-transparent" />
-        <div className="absolute top-0 left-0 w-30 h-30 bg-white/2 rounded-full blur-2xl pointer-events-none -translate-x-10 -translate-y-10" />
-
-        <div className="relative z-10">
-          <div className="flex items-center justify-between mb-4">
-            {/* Translucent Premium Container for Icon */}
-            <div className="text-xl p-2 bg-zinc-800/60 border border-zinc-700/50 rounded-xl shadow-inner backdrop-blur-sm text-amber-400">
-              {icon}
-            </div>
-            {/* Sharper, refined badge element matching light-theme scale */}
-            <div className="text-[9px] font-mono font-bold tracking-widest uppercase text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20 shadow-sm backdrop-blur-sm">
-              {label}
-            </div>
-          </div>
-
-          <div className="text-[10px] font-mono uppercase tracking-widest text-zinc-400 font-semibold">
-            {title}
-          </div>
-        </div>
-
-        <div className="relative z-10 text-3xl font-extrabold tracking-tight mt-2 text-zinc-50 drop-shadow-sm">
-          {value}
-        </div>
-      </div>
-    );
-  }
-
-  // ─── STANDARD LIGHT CARDS (PayPal / Utility Bill) ───
-  const colorMap = {
-    emerald:
-      "text-emerald-800 border-emerald-200 bg-emerald-50/60 hover:border-emerald-300",
-    yellow:
-      "text-amber-800 border-amber-200 bg-amber-50/60 hover:border-amber-300",
-    red: "text-red-800 border-red-200 bg-red-50",
-    gray: "text-zinc-500 border-zinc-200 bg-zinc-50 hover:border-zinc-300",
-    blue: "text-blue-800 border-blue-200 bg-blue-50/60 hover:border-blue-300",
-  };
-
+// Helper component for the small top metrics
+function TopStat({ label, value, highlight }) {
   return (
-    <div
-      className={`p-6 bg-white rounded-2xl border shadow-[0_2px_8px_-3px_rgba(0,0,0,0.04)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md flex flex-col justify-between min-h-40 ${colorMap[color] || colorMap.gray}`}
-    >
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="text-xl p-2 bg-zinc-50 rounded-xl border border-zinc-100 shadow-sm">
-            {icon}
-          </div>
-          <div className="text-[10px] font-mono font-semibold tracking-widest uppercase opacity-80">
-            {label}
-          </div>
-        </div>
-
-        <div className="text-[10px]  font-mono uppercase tracking-wider text-zinc-400 font-semibold">
-          {title}
-        </div>
-      </div>
-
-      <div className="text-2xl font-bold tracking-tight mt-2 text-zinc-950">
+    <div className="flex flex-col border-l-2 border-slate-200/60 pl-3">
+      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{label}</span>
+      <span className={`text-xl font-bold tracking-tight font-mono ${highlight ? 'text-emerald-600' : 'text-slate-800'}`}>
         {value}
-      </div>
-    </div>
-  );
-}
-
-function MetricCard({ label, value }) {
-  return (
-    <div className="p-4 bg-zinc-50 rounded-xl border border-zinc-200">
-      <div className="text-xs text-zinc-400 font-medium tracking-wider mb-1 uppercase">
-        {label}
-      </div>
-
-      <div className="text-lg font-bold text-zinc-900">{value}</div>
-    </div>
-  );
-}
-
-function InsightPanel({ title, color, items, type }) {
-  const titleColor = color === "red" ? "text-red-600" : "text-emerald-600";
-  const valueColor = color === "red" ? "text-red-600" : "text-emerald-600";
-
-  return (
-    <div className="p-6 bg-white rounded-2xl border border-zinc-200 shadow-sm">
-      <div
-        className={`${titleColor} text-sm font-semibold tracking-wider uppercase mb-4`}
-      >
-        {title}
-      </div>
-
-      <div className="space-y-3">
-        {items.map((f) => (
-          <div
-            key={f.feature_name}
-            className="flex justify-between gap-3 p-4 bg-zinc-50 border border-zinc-150 rounded-xl text-sm"
-          >
-            <span className="text-zinc-600 font-medium">{f.display_label}</span>
-
-            <span className={`${valueColor} font-bold whitespace-nowrap`}>
-              {type === "positive" ? "+" : ""}
-              {Number(f.shap_value).toFixed(0)} pts
-            </span>
-          </div>
-        ))}
-      </div>
+      </span>
     </div>
   );
 }
