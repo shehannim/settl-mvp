@@ -607,7 +607,7 @@ export default function App() {
           <PayPalCallback go={go} setUserId={setUserId} />
         )}
         {page === "paypal-success" && <PayPalSuccess go={go} />}
-        {page === "paypal-dashboard" && <PayPalDashboard />}
+        {page === "paypal-dashboard" && <PayPalDashboard go={go} />}
       </main>
     </div>
   );
