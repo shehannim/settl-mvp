@@ -6,7 +6,6 @@ import Register from "./pages/Register.jsx";
 import Login from "./pages/Login.jsx";
 import KYC from "./pages/KYC.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
-import Lender from "./pages/Lender.jsx";
 import BillUpload from "./pages/BillUpload.jsx";
 import PayPalConnect from "./pages/PayPalConnect.jsx";
 import PayPalCallback from "./pages/PayPalCallback.jsx";
@@ -267,7 +266,6 @@ export default function App() {
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
     { id: "kyc", label: "KYC" },
-    { id: "lender", label: "Lender" },
     { id: "bill-upload", label: "Bills" },
     { id: "paypal-dashboard", label: "Income" },
   ];
@@ -598,7 +596,6 @@ export default function App() {
           <Dashboard token={token} userId={displayUserId} go={go} />
         )}
         {page === "kyc" && <KYC token={token} go={go} />}
-        {page === "lender" && <Lender />}
         {page === "bill-upload" && (
           <BillUpload token={token} go={go} />
         )}
