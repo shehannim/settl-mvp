@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import emailjs from "@emailjs/browser";
 
@@ -18,21 +18,36 @@ export default function KYC({ token, go }) {
 
   const headers = { Authorization: `Bearer ${token}` };
 
+  // ✅ FRONTEND-ONLY VERIFIED STATE
+  useEffect(() => {
+    const alreadyVerified = localStorage.getItem("kyc_verified") === "true";
+    if (alreadyVerified) {
+      setStep("done");
+    }
+  }, []);
+
   const submitNic = async () => {
+    // if already verified, do nothing
+    if (localStorage.getItem("kyc_verified") === "true") {
+      setStep("done");
+      return;
+    }
+
     setLoading(true);
     setError("");
+
     try {
-      // ✅ Step 1: Tell backend to generate and store OTP
+      // Step 1: tell backend to generate/store OTP
       const res = await axios.post(
         `${API}/api/kyc/verify-nic`,
         { nic_number: nic },
-        { headers },
+        { headers }
       );
 
       const generatedOtp = res.data.otp;
       const userEmail = res.data.email;
 
-      // ✅ Step 2: Send OTP email via EmailJS from frontend
+      // Step 2: send OTP email via EmailJS
       await emailjs.send(
         EMAILJS_SERVICE_ID,
         EMAILJS_TEMPLATE_ID,
@@ -40,7 +55,7 @@ export default function KYC({ token, go }) {
           to_email: userEmail,
           otp: generatedOtp,
         },
-        EMAILJS_PUBLIC_KEY,
+        EMAILJS_PUBLIC_KEY
       );
 
       setStep("otp");
@@ -48,36 +63,56 @@ export default function KYC({ token, go }) {
       console.error(e);
       setError(e.response?.data?.detail || "Verification failed");
     }
+
     setLoading(false);
   };
 
   const submitOtp = async () => {
+    // if already verified, protect from changing back
+    if (localStorage.getItem("kyc_verified") === "true") {
+      setStep("done");
+      return;
+    }
+
     setLoading(true);
     setError("");
+
     try {
       await axios.post(
         `${API}/api/kyc/verify-otp`,
         { otp_code: otp },
-        { headers },
+        { headers }
       );
+
+      // ✅ STORE VERIFIED STATE IN LOCAL STORAGE
+      localStorage.setItem("kyc_verified", "true");
+      localStorage.setItem("kyc_status", "verified");
+      localStorage.setItem("profile_score_refresh", "1");
+
+      // optional helper flags for dashboard UI
+      localStorage.setItem("verification_badge", "verified");
+
       setStep("done");
     } catch (e) {
       setError(e.response?.data?.detail || "OTP verification failed");
     }
+
     setLoading(false);
   };
 
   return (
     <div className="max-w-md mx-auto mt-16 p-8 bg-white rounded-2xl border border-zinc-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)]">
-      {/* ─── STEP 1: NIC ANCHOR ─── */}
+      {/* STEP 1: NIC */}
       {step === "nic" && (
         <>
           <div className="text-zinc-500 text-xs font-mono font-bold uppercase tracking-widest mb-2">
             Step 1 · Identity Anchor
           </div>
+
           <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight mb-2">
             Verify your identity
           </h1>
+
           <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
             Your National Identity Card (NIC) securely links your structural
             credit metrics to a real identity profile.
@@ -87,6 +122,7 @@ export default function KYC({ token, go }) {
             <label className="text-[10px] text-zinc-400 font-mono font-bold uppercase tracking-wider">
               NIC Number
             </label>
+
             <input
               className="w-full p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 placeholder-zinc-400 focus:border-zinc-900 focus:bg-white transition-all outline-none font-mono text-sm shadow-inner"
               placeholder="199012345678 or 900123456V"
@@ -115,15 +151,17 @@ export default function KYC({ token, go }) {
         </>
       )}
 
-      {/* ─── STEP 2: SECURITY OTP CHECK ─── */}
+      {/* STEP 2: OTP */}
       {step === "otp" && (
         <>
           <div className="text-zinc-500 text-xs font-mono font-bold uppercase tracking-widest mb-2">
             Step 2 · Security Check
           </div>
+
           <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight mb-2">
             Check your device
           </h1>
+
           <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
             Enter the 6-digit confirmation code issued to your registered
             security layer.
@@ -142,6 +180,7 @@ export default function KYC({ token, go }) {
             <label className="text-[10px] text-zinc-400 font-mono font-bold uppercase tracking-wider">
               Verification Code
             </label>
+
             <input
               className="w-full p-3.5 bg-zinc-50 border border-zinc-200 rounded-xl text-zinc-900 focus:border-zinc-900 focus:bg-white outline-none font-mono text-center text-2xl tracking-[0.4em] font-bold shadow-inner"
               placeholder="000000"
@@ -167,19 +206,21 @@ export default function KYC({ token, go }) {
         </>
       )}
 
-      {/* ─── STEP 3: DONE / VERIFIED ─── */}
+      {/* STEP 3: VERIFIED */}
       {step === "done" && (
         <>
           <div className="text-center">
             <div className="w-14 h-14 bg-zinc-900 text-white rounded-full flex items-center justify-center text-xl mx-auto mb-4 shadow-md">
               ✓
             </div>
+
             <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight mb-2">
               Identity verified
             </h1>
+
             <p className="text-zinc-500 text-sm mb-6 leading-relaxed">
-              Your identity anchor is active. Platform integrations will now
-              measure against this footprint.
+              Your identity anchor is active. This verification is locked for
+              this browser session and will remain marked as verified.
             </p>
 
             <div className="space-y-2 mb-8 text-left">
@@ -187,6 +228,7 @@ export default function KYC({ token, go }) {
                 "NIC format validated",
                 "Security token confirmed",
                 "Identity anchor created",
+                "Verification status stored locally",
               ].map((t) => (
                 <div
                   key={t}

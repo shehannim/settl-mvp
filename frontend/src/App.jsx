@@ -146,7 +146,7 @@ function ShieldIcon() {
 }
 
 /* =========================
-   Fingerprint Mark
+   Fingerprint Logo
 ========================= */
 
 function FingerprintMark({ className = "w-6 h-6", stroke = "white" }) {
@@ -188,6 +188,8 @@ export default function App() {
 
   const profileMenuRef = useRef(null);
   const profileButtonRef = useRef(null);
+  const mobileMenuRef = useRef(null);
+  const mobileButtonRef = useRef(null);
 
   const savedToken = localStorage.getItem("token");
   const [page, setPage] = useState(savedToken ? "dashboard" : "login");
@@ -226,27 +228,35 @@ export default function App() {
     }
   }, []);
 
-  /* ✅ FIX: outside click close for profile dropdown */
+  /* outside click handling */
   useEffect(() => {
     function handleClickOutside(event) {
-      if (!profileMenuOpen) return;
-
-      const menuEl = profileMenuRef.current;
-      const buttonEl = profileButtonRef.current;
-
+      // profile dropdown
       if (
-        menuEl &&
-        !menuEl.contains(event.target) &&
-        buttonEl &&
-        !buttonEl.contains(event.target)
+        profileMenuOpen &&
+        profileMenuRef.current &&
+        !profileMenuRef.current.contains(event.target) &&
+        profileButtonRef.current &&
+        !profileButtonRef.current.contains(event.target)
       ) {
         setProfileMenuOpen(false);
+      }
+
+      // mobile menu
+      if (
+        mobileMenuOpen &&
+        mobileMenuRef.current &&
+        !mobileMenuRef.current.contains(event.target) &&
+        mobileButtonRef.current &&
+        !mobileButtonRef.current.contains(event.target)
+      ) {
+        setMobileMenuOpen(false);
       }
     }
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [profileMenuOpen]);
+  }, [profileMenuOpen, mobileMenuOpen]);
 
   const userEmail = localStorage.getItem("email") || "user@settl.io";
   const storedName = localStorage.getItem("name");
@@ -265,16 +275,16 @@ export default function App() {
 
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
-    { id: "kyc", label: "KYC" },
-    { id: "bill-upload", label: "Bills" },
     { id: "paypal-dashboard", label: "Income" },
+    { id: "bill-upload", label: "Bills" },
+    
   ];
 
-  /* ================= AUTH ================= */
+  /* ================= AUTH VIEW ================= */
   if (!token) {
     return (
       <div className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="sticky top-0 z-40 w-full bg-white/75 backdrop-blur-xl border-b border-black/5">
+        <div className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-xl border-b border-black/5">
           <div className="max-w-[1500px] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
             <button
               onClick={() => go("login")}
@@ -325,8 +335,6 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-
-      {/* subtle local styling */}
       <style>{`
         @keyframes dropdownIn {
           0% {
@@ -339,21 +347,37 @@ export default function App() {
           }
         }
 
+        @keyframes mobileMenuIn {
+          0% {
+            opacity: 0;
+            transform: translateY(-10px) scale(0.98);
+          }
+          100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+          }
+        }
+
         .dropdown-animate {
           animation: dropdownIn 160ms ease-out;
           transform-origin: top right;
         }
 
-        .glass-soft {
-          background: rgba(255,255,255,0.65);
+        .mobilemenu-animate {
+          animation: mobileMenuIn 170ms ease-out;
+          transform-origin: top center;
+        }
+
+        .glass-dropdown {
+          background: rgba(255,255,255,0.62);
           backdrop-filter: blur(22px) saturate(160%);
           -webkit-backdrop-filter: blur(22px) saturate(160%);
           border: 1px solid rgba(255,255,255,0.45);
-          box-shadow: 0 10px 30px rgba(15,23,42,0.06);
+          box-shadow: 0 12px 30px rgba(15,23,42,0.08);
         }
       `}</style>
 
-      {/* ================= NAVBAR ================= */}
+      {/* NAVBAR */}
       <nav className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-xl border-b border-black/5">
         <div className="max-w-[1500px] mx-auto h-[76px] px-4 sm:px-6 md:px-10 flex items-center justify-between">
 
@@ -392,11 +416,11 @@ export default function App() {
 
           {/* RIGHT */}
           <div className="flex items-center gap-3">
-
-            {/* MOBILE MENU BUTTON */}
+            {/* HAMBURGER BUTTON */}
             <button
+              ref={mobileButtonRef}
               className="md:hidden w-10 h-10 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
               aria-label="Open menu"
             >
               <MenuIcon />
@@ -430,7 +454,7 @@ export default function App() {
                 </div>
               </button>
 
-              {/* DROPDOWN */}
+              {/* PROFILE DROPDOWN — blur only here */}
               {profileMenuOpen && (
                 <div
                   ref={profileMenuRef}
@@ -440,7 +464,7 @@ export default function App() {
                     w-[340px] sm:w-[360px]
                     rounded-[24px]
                     overflow-hidden
-                    glass-soft
+                    glass-dropdown
                     z-50
                   "
                 >
@@ -474,9 +498,7 @@ export default function App() {
                           <UserIcon />
                           <span>Profile</span>
                         </div>
-                        <span className="font-medium text-slate-900">
-                          {profileType}
-                        </span>
+                        <span className="font-medium text-slate-900">{profileType}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -494,9 +516,7 @@ export default function App() {
                           <IdIcon />
                           <span>Settl ID</span>
                         </div>
-                        <span className="font-medium text-slate-900">
-                          {displayUserId}
-                        </span>
+                        <span className="font-medium text-slate-900">{displayUserId}</span>
                       </div>
 
                       <div className="flex items-center justify-between text-sm">
@@ -504,9 +524,7 @@ export default function App() {
                           <ShieldIcon />
                           <span>Status</span>
                         </div>
-                        <span className="font-medium text-emerald-600">
-                          {accountStatus}
-                        </span>
+                        <span className="font-medium text-emerald-600">{accountStatus}</span>
                       </div>
                     </div>
 
@@ -514,9 +532,7 @@ export default function App() {
 
                     {/* FEATURE CARD */}
                     <div className="rounded-2xl bg-black text-white p-4 shadow-sm">
-                      <div className="text-sm font-semibold mb-1">
-                        AI Insights
-                      </div>
+                      <div className="text-sm font-semibold mb-1">AI Insights</div>
                       <div className="text-xs text-white/70 leading-relaxed">
                         Unlock financial intelligence and profile readiness signals.
                       </div>
@@ -545,10 +561,13 @@ export default function App() {
         </div>
       </nav>
 
-      {/* ================= MOBILE MENU ================= */}
+      {/* MOBILE MENU — smooth dropdown */}
       {mobileMenuOpen && (
         <div className="md:hidden px-4 pt-3 relative z-30">
-          <div className="rounded-3xl bg-white border border-slate-200 shadow-sm p-3">
+          <div
+            ref={mobileMenuRef}
+            className="mobilemenu-animate rounded-3xl bg-white border border-slate-200 shadow-sm p-3"
+          >
             <div className="px-3 py-3 mb-2">
               <div className="text-sm font-semibold text-slate-900 truncate">
                 {userName}
@@ -590,7 +609,7 @@ export default function App() {
         </div>
       )}
 
-      {/* ================= ROUTER ================= */}
+      {/* ROUTER */}
       <main className="w-full">
         {page === "dashboard" && (
           <Dashboard token={token} userId={displayUserId} go={go} />
@@ -609,4 +628,3 @@ export default function App() {
     </div>
   );
 }
-``

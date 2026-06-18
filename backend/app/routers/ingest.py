@@ -9,6 +9,8 @@ import uuid
 router = APIRouter(prefix="/api/ingest", tags=["ingest"])
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10MB
+NAME_MATCH_THRESHOLD = 0.80
+UTILITY_BILL_VERIFICATION_BONUS = 25
 
 
 def normalize_ocr_fields(fields):
@@ -91,16 +93,38 @@ def extract_raw_text(ocr_result: dict) -> str:
     return ""
 
 
+def extract_bill_name(fields):
+    """
+    Try to find the account holder / customer name from OCR fields.
+    """
+    possible_name_keys = {
+        "account_holder",
+        "customer_name",
+        "account_name",
+        "name",
+        "consumer_name",
+        "subscriber_name",
+        "billing_name",
+    }
+
+    for field in fields:
+        field_name = (field.get("field_name") or "").strip().lower()
+        extracted_value = field.get("extracted_value")
+
+        if field_name in possible_name_keys and extracted_value:
+            return str(extracted_value).strip()
+
+    return ""
+
+
 @router.post("/utility-bill")
 async def upload_utility_bill(
     file: UploadFile = File(...),
     user: dict = Depends(get_current_user),
 ):
     user_id = user["sub"]
-
     filename = file.filename.lower()
 
-    # ✅ FIXED VALIDATION
     if not filename.endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
 
@@ -122,22 +146,14 @@ async def upload_utility_bill(
     except Exception as e:
         print("Storage upload warning:", e)
 
-    # ✅ DEBUG ADDED HERE
     try:
-        print("✅ OCR START:", filename)
-
         ocr_result = process_bill(pdf_bytes) or {}
-
-        print("✅ OCR RESULT:", ocr_result)
-
     except Exception as e:
         print("OCR processing error:", e)
         raise HTTPException(status_code=500, detail="OCR processing failed")
 
     fields = normalize_ocr_fields(ocr_result.get("fields", []))
     raw_text = extract_raw_text(ocr_result)
-
-    print("✅ OCR TEXT LENGTH:", len(raw_text))
 
     biller_detected = (
         ocr_result.get("biller_detected")
@@ -155,15 +171,18 @@ async def upload_utility_bill(
     user_data = db.table("users").select("full_name").eq("id", user_id).execute()
     registered_name = user_data.data[0].get("full_name", "") if user_data.data else ""
 
-    identity_match_score = 0.5
+    bill_name = extract_bill_name(fields)
 
-    for field in fields:
-        if field["field_name"] in ("account_holder", "customer_name") and field.get("extracted_value"):
-            identity_match_score = fuzzy_name_match(
-                registered_name,
-                field["extracted_value"]
-            )
-            break
+    identity_match_score = 0.0
+    if registered_name and bill_name:
+        identity_match_score = fuzzy_name_match(registered_name, bill_name)
+    else:
+        identity_match_score = 0.0
+
+    if identity_match_score >= NAME_MATCH_THRESHOLD:
+        review_status = "verified"
+    else:
+        review_status = "needs_staff_review"
 
     db.table("pending_bills").upsert({
         "id": bill_id,
@@ -174,9 +193,47 @@ async def upload_utility_bill(
         "overall_confidence": overall_confidence,
         "identity_match_score": identity_match_score,
         "payment_on_time": ocr_result.get("payment_on_time"),
-        "status": status,
+        "status": review_status,
         "created_at": datetime.utcnow().isoformat(),
     }).execute()
+
+    # PROFILE VERIFICATION SCORE UPDATE
+    user_row = db.table("users") \
+        .select(
+            "profile_verification_score, utility_bill_verified, utility_bill_review_status"
+        ) \
+        .eq("id", user_id) \
+        .execute()
+
+    new_score = 0
+
+    if user_row.data:
+        current_score = user_row.data[0].get("profile_verification_score") or 0
+        already_verified = user_row.data[0].get("utility_bill_verified") or False
+
+        # CASE 1: name matches -> verified -> give score bonus only once
+        if review_status == "verified":
+            if not already_verified:
+                new_score = min(current_score + UTILITY_BILL_VERIFICATION_BONUS, 100)
+            else:
+                new_score = current_score
+
+            db.table("users").update({
+                "profile_verification_score": new_score,
+                "utility_bill_verified": True,
+                "utility_bill_review_status": "verified",
+                "utility_bill_name_match_score": round(identity_match_score, 2),
+            }).eq("id", user_id).execute()
+
+        # CASE 2: mismatch -> staff review -> no full verification bonus
+        else:
+            new_score = current_score
+
+            db.table("users").update({
+                "utility_bill_verified": False,
+                "utility_bill_review_status": "needs_staff_review",
+                "utility_bill_name_match_score": round(identity_match_score, 2),
+            }).eq("id", user_id).execute()
 
     return {
         "bill_id": bill_id,
@@ -185,124 +242,10 @@ async def upload_utility_bill(
         "overall_confidence": overall_confidence,
         "identity_match_score": round(identity_match_score, 2),
         "payment_on_time": ocr_result.get("payment_on_time"),
-        "status": status,
+        "status": review_status,
         "raw_text": raw_text,
         "has_raw_text": bool(raw_text),
-    }
-
-
-# ✅ REST REMAINS UNCHANGED (your original code)
-@router.post("/ocr-review")
-async def submit_ocr_review(
-    bill_id: str,
-    corrected_fields: dict,
-    user: dict = Depends(get_current_user),
-):
-    user_id = user["sub"]
-    db = get_supabase_admin()
-
-    result = db.table("pending_bills")\
-        .select("*")\
-        .eq("id", bill_id)\
-        .eq("user_id", user_id)\
-        .execute()
-
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Bill not found")
-
-    pending = result.data[0]
-
-    fields = pending["fields"] or []
-
-    for field in fields:
-        if field["field_name"] in corrected_fields:
-            field["extracted_value"] = corrected_fields[field["field_name"]]
-            field["user_verified"] = True
-            field["confidence"] = 0.90
-
-    db.table("verified_bills").insert({
-        "id": bill_id,
-        "user_id": user_id,
-        "storage_path": pending["storage_path"],
-        "biller_detected": pending["biller_detected"],
-        "fields": fields,
-        "overall_confidence": pending["overall_confidence"],
-        "identity_match_score": pending["identity_match_score"],
-        "payment_on_time": pending.get("payment_on_time"),
-        "confirmed_at": datetime.utcnow().isoformat(),
-    }).execute()
-
-    db.table("pending_bills").delete().eq("id", bill_id).execute()
-
-    all_bills = db.table("verified_bills")\
-        .select("payment_on_time")\
-        .eq("user_id", user_id)\
-        .execute()
-
-    bills_data = all_bills.data
-
-    on_time_count = sum(
-        1 for bill in bills_data
-        if bill.get("payment_on_time") is True
-    )
-
-    total_with_dates = sum(
-        1 for bill in bills_data
-        if bill.get("payment_on_time") is not None
-    )
-
-    on_time_rate = (
-        on_time_count / total_with_dates
-        if total_with_dates > 0
-        else 0.5
-    )
-
-    db.table("users").update({
-        "bill_ontime_rate": on_time_rate,
-        "bill_count": len(bills_data),
-    }).eq("id", user_id).execute()
-
-    return {
-        "success": True,
-        "bill_id": bill_id,
-        "confirmed_fields": fields,
-        "payment_on_time": pending.get("payment_on_time"),
-        "confidence_impact": round(
-            min(len(bills_data) / 12.0, 1.0) * 0.25 * 0.10,
-            3
-        ),
-    }
-
-
-@router.get("/bills")
-async def get_uploaded_bills(user: dict = Depends(get_current_user)):
-    user_id = user["sub"]
-    db = get_supabase_admin()
-
-    result = db.table("verified_bills")\
-        .select("id, biller_detected, overall_confidence, payment_on_time, confirmed_at")\
-        .eq("user_id", user_id)\
-        .order("confirmed_at", desc=True)\
-        .execute()
-
-    return {
-        "bills": result.data,
-        "count": len(result.data),
-    }
-
-
-@router.get("/pending-bills")
-async def get_pending_bills(user: dict = Depends(get_current_user)):
-    user_id = user["sub"]
-    db = get_supabase_admin()
-
-    result = db.table("pending_bills")\
-        .select("id, biller_detected, fields, overall_confidence, identity_match_score, status, created_at")\
-        .eq("user_id", user_id)\
-        .order("created_at", desc=True)\
-        .execute()
-
-    return {
-        "pending_bills": result.data,
-        "count": len(result.data),
+        "bill_name": bill_name,
+        "registered_name": registered_name,
+        "profile_verification_score": new_score,
     }

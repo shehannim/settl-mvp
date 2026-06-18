@@ -162,7 +162,6 @@ export default function PayPalDashboard({ go }) {
   const [sources, setSources] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // real backend action states
   const [syncingId, setSyncingId] = useState(null);
   const [disconnectingId, setDisconnectingId] = useState(null);
   const [confirmDisconnectId, setConfirmDisconnectId] = useState(null);
@@ -171,15 +170,15 @@ export default function PayPalDashboard({ go }) {
   const headers = { Authorization: `Bearer ${authToken}` };
 
   /* =========================
-     Static Demo Graph + Ledger
+     Stable Demo Data
   ========================= */
   const monthlyData = [
-    { month: "Jan", val: 3200 },
-    { month: "Feb", val: 4100 },
-    { month: "Mar", val: 3800 },
-    { month: "Apr", val: 5200 },
-    { month: "May", val: 4900 },
-    { month: "Jun", val: 6100 },
+    { month: "Jan", val: 4200 },
+    { month: "Feb", val: 4350 },
+    { month: "Mar", val: 4480 },
+    { month: "Apr", val: 4630 },
+    { month: "May", val: 4780 },
+    { month: "Jun", val: 4920 },
   ];
 
   const mockTx = [
@@ -218,14 +217,18 @@ export default function PayPalDashboard({ go }) {
   ];
 
   /* =========================
-     Graph Helpers
+     Stable Graph Helpers
   ========================= */
   const chartWidth = 720;
   const chartHeight = 280;
   const padding = 42;
 
-  const maxValue = Math.max(...monthlyData.map((d) => d.val));
-  const minValue = Math.min(...monthlyData.map((d) => d.val));
+  const rawMax = Math.max(...monthlyData.map((d) => d.val));
+  const rawMin = Math.min(...monthlyData.map((d) => d.val));
+
+  // Wider visual range so chart doesn’t look too volatile
+  const minValue = Math.max(0, rawMin - 800);
+  const maxValue = rawMax + 800;
 
   const getX = (index) => {
     return padding + (index * (chartWidth - padding * 2)) / (monthlyData.length - 1);
@@ -239,14 +242,22 @@ export default function PayPalDashboard({ go }) {
     );
   };
 
-  const linePath = monthlyData
-    .map((d, i) => `${i === 0 ? "M" : "L"} ${getX(i)} ${getY(d.val)}`)
-    .join(" ");
+  const points = monthlyData.map((d, i) => ({
+    x: getX(i),
+    y: getY(d.val),
+  }));
+
+  const linePath = points.reduce((path, point, i, arr) => {
+    if (i === 0) return `M ${point.x} ${point.y}`;
+    const prev = arr[i - 1];
+    const cx = (prev.x + point.x) / 2;
+    return `${path} Q ${cx} ${prev.y}, ${point.x} ${point.y}`;
+  }, "");
 
   const areaPath = `
     ${linePath}
-    L ${getX(monthlyData.length - 1)} ${chartHeight - padding}
-    L ${getX(0)} ${chartHeight - padding}
+    L ${points[points.length - 1].x} ${chartHeight - padding}
+    L ${points[0].x} ${chartHeight - padding}
     Z
   `;
 
@@ -275,7 +286,6 @@ export default function PayPalDashboard({ go }) {
         isDemo: false,
       }));
 
-      // demo-only sources for richer UI
       const demoSources = [
         {
           id: "stripe_demo",
@@ -397,7 +407,7 @@ export default function PayPalDashboard({ go }) {
 
       <div className="relative w-full max-w-[1400px] grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4">
 
-        {/* ================= LEFT COLUMN ================= */}
+        {/* LEFT COLUMN */}
         <div className="lg:col-span-4 space-y-6">
 
           {/* Income Pipelines */}
@@ -594,7 +604,7 @@ export default function PayPalDashboard({ go }) {
           </div>
         </div>
 
-        {/* ================= RIGHT COLUMN ================= */}
+        {/* RIGHT COLUMN */}
         <div className="lg:col-span-8 space-y-6">
 
           {/* Income Trend Chart */}
@@ -611,11 +621,11 @@ export default function PayPalDashboard({ go }) {
 
               <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-100">
                 <Icons.Trending />
-                Insight: Rising
+                Stable Growth
               </div>
             </div>
 
-            {/* Real SVG Trend Graph */}
+            {/* Stable SVG Trend Graph */}
             <div className="w-full overflow-x-auto">
               <svg
                 viewBox={`0 0 ${chartWidth} ${chartHeight}`}
@@ -624,7 +634,7 @@ export default function PayPalDashboard({ go }) {
               >
                 <defs>
                   <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.28" />
+                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.22" />
                     <stop offset="100%" stopColor="#2563eb" stopOpacity="0.02" />
                   </linearGradient>
                 </defs>
@@ -648,7 +658,7 @@ export default function PayPalDashboard({ go }) {
                 {/* Area */}
                 <path d={areaPath} fill="url(#incomeFill)" />
 
-                {/* Line */}
+                {/* Smooth line */}
                 <path
                   d={linePath}
                   fill="none"
@@ -659,41 +669,41 @@ export default function PayPalDashboard({ go }) {
                 />
 
                 {/* Points + labels */}
-                {monthlyData.map((d, i) => (
-                  <g key={d.month}>
+                {points.map((p, i) => (
+                  <g key={monthlyData[i].month}>
                     <circle
-                      cx={getX(i)}
-                      cy={getY(d.val)}
+                      cx={p.x}
+                      cy={p.y}
                       r="5"
                       fill="white"
                       stroke="#2563eb"
                       strokeWidth="3"
                     />
                     <text
-                      x={getX(i)}
-                      y={getY(d.val) - 14}
+                      x={p.x}
+                      y={p.y - 14}
                       textAnchor="middle"
                       fontSize="11"
                       fontWeight="600"
                       fill="#0f172a"
                     >
-                      ${d.val}
+                      ${monthlyData[i].val}
                     </text>
                   </g>
                 ))}
 
-                {/* month labels */}
-                {monthlyData.map((d, i) => (
+                {/* Month labels */}
+                {points.map((p, i) => (
                   <text
-                    key={d.month}
-                    x={getX(i)}
+                    key={monthlyData[i].month}
+                    x={p.x}
                     y={chartHeight - 10}
                     textAnchor="middle"
                     fontSize="11"
                     fill="#64748b"
                     fontWeight="600"
                   >
-                    {d.month}
+                    {monthlyData[i].month}
                   </text>
                 ))}
               </svg>
