@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import "./App.css";
+import fingerprintLogo from "./assets/fingerprint.png";
 
 // Pages
 import Register from "./pages/Register.jsx";
@@ -146,39 +147,6 @@ function ShieldIcon() {
 }
 
 /* =========================
-   Fingerprint Logo
-========================= */
-
-function FingerprintMark({ className = "w-6 h-6", stroke = "white" }) {
-  return (
-    <svg
-      viewBox="0 0 64 64"
-      role="img"
-      aria-label="Settl fingerprint mark"
-      className={className}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-    >
-      <path d="M34 7c-7 0-12 2-16 7" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M43 10c-3-3-7-5-12-6" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M50 18c-1-3-3-6-5-8" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-
-      <path d="M18 34c0-14 9-24 20-24 9 0 17 6 20 15" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M14 46c0-19 11-31 24-31 11 0 20 8 22 20" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M14 56c0-4 0-8 0-11 0-19 11-34 26-34 12 0 22 8 25 22" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-
-      <path d="M24 58c-5-5-8-12-8-20 0-13 8-22 18-22 8 0 15 6 17 14" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M32 59c-6-4-10-11-10-19 0-10 6-17 14-17 7 0 12 5 13 12" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M40 56c-2 0-5-1-7-3-4-3-6-8-6-13 0-7 4-12 10-12 5 0 9 4 9 10" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-
-      <path d="M39 48c0 3-1 6-3 8" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M35 50c-4-2-6-6-6-11 0-5 3-8 7-8 4 0 7 3 7 7 0 2-1 5-2 6" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-      <path d="M34 57c-2-1-4-2-6-4-3-3-5-8-5-13" stroke={stroke} strokeWidth="4" strokeLinecap="round" />
-    </svg>
-  );
-}
-
-/* =========================
    App
 ========================= */
 
@@ -231,7 +199,6 @@ export default function App() {
   /* outside click handling */
   useEffect(() => {
     function handleClickOutside(event) {
-      // profile dropdown
       if (
         profileMenuOpen &&
         profileMenuRef.current &&
@@ -242,7 +209,6 @@ export default function App() {
         setProfileMenuOpen(false);
       }
 
-      // mobile menu
       if (
         mobileMenuOpen &&
         mobileMenuRef.current &&
@@ -277,7 +243,6 @@ export default function App() {
     { id: "dashboard", label: "Dashboard" },
     { id: "paypal-dashboard", label: "Income" },
     { id: "bill-upload", label: "Bills" },
-    
   ];
 
   /* ================= AUTH VIEW ================= */
@@ -290,9 +255,14 @@ export default function App() {
               onClick={() => go("login")}
               className="flex items-center gap-3 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
-                <FingerprintMark className="w-6 h-6" stroke="white" />
+              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden p-1">
+                <img
+                  src={fingerprintLogo}
+                  alt="Settl Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
+
               <span className="font-semibold text-lg tracking-tight text-slate-900">
                 Settl
               </span>
@@ -387,8 +357,12 @@ export default function App() {
               onClick={() => go("dashboard")}
               className="flex items-center gap-3 cursor-pointer"
             >
-              <div className="w-10 h-10 rounded-xl bg-black flex items-center justify-center shadow-sm">
-                <FingerprintMark className="w-6 h-6" stroke="white" />
+              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden p-1">
+                <img
+                  src={fingerprintLogo}
+                  alt="Settl Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
 
               <span className="font-semibold text-[18px] tracking-tight text-slate-900">
@@ -454,7 +428,7 @@ export default function App() {
                 </div>
               </button>
 
-              {/* PROFILE DROPDOWN — blur only here */}
+              {/* PROFILE DROPDOWN */}
               {profileMenuOpen && (
                 <div
                   ref={profileMenuRef}
@@ -561,7 +535,7 @@ export default function App() {
         </div>
       </nav>
 
-      {/* MOBILE MENU — smooth dropdown */}
+      {/* MOBILE MENU */}
       {mobileMenuOpen && (
         <div className="md:hidden px-4 pt-3 relative z-30">
           <div

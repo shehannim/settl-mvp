@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
-import fingerprintLogo from "../assets/fingerprint.png";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -151,7 +150,7 @@ export default function Dashboard({ token, userId, go }) {
     Number(localStorage.getItem("utility_bill_name_match_score") || 0)
   );
 
-  // ✅ NEW: frontend-only KYC verification state
+  // frontend-only KYC verification state
   const [kycVerified, setKycVerified] = useState(
     localStorage.getItem("kyc_verified") === "true"
   );
@@ -160,44 +159,44 @@ export default function Dashboard({ token, userId, go }) {
   const headers = { Authorization: `Bearer ${authToken}` };
 
   useEffect(() => {
-  const refreshDashboardState = async () => {
-    await loadSources();
-    loadStoredVerificationState();
+    const refreshDashboardState = async () => {
+      await loadSources();
+      loadStoredVerificationState();
 
-    const verified = localStorage.getItem("kyc_verified") === "true";
-    setKycVerified(verified);
+      const verified = localStorage.getItem("kyc_verified") === "true";
+      setKycVerified(verified);
 
-    const refreshFlag = localStorage.getItem("profile_score_refresh");
-    if (refreshFlag === "1") {
-      localStorage.removeItem("profile_score_refresh");
-    }
+      const refreshFlag = localStorage.getItem("profile_score_refresh");
+      if (refreshFlag === "1") {
+        localStorage.removeItem("profile_score_refresh");
+      }
 
-    const paypalRefresh = localStorage.getItem("paypal_refresh");
-    if (paypalRefresh === "1") {
-      localStorage.removeItem("paypal_refresh");
-    }
-  };
+      const paypalRefresh = localStorage.getItem("paypal_refresh");
+      if (paypalRefresh === "1") {
+        localStorage.removeItem("paypal_refresh");
+      }
+    };
 
-  refreshDashboardState();
-
-  const handleFocus = () => {
     refreshDashboardState();
-  };
 
-  const handleVisibility = () => {
-    if (!document.hidden) {
+    const handleFocus = () => {
       refreshDashboardState();
-    }
-  };
+    };
 
-  window.addEventListener("focus", handleFocus);
-  document.addEventListener("visibilitychange", handleVisibility);
+    const handleVisibility = () => {
+      if (!document.hidden) {
+        refreshDashboardState();
+      }
+    };
 
-  return () => {
-    window.removeEventListener("focus", handleFocus);
-    document.removeEventListener("visibilitychange", handleVisibility);
-  };
-}, []);
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, []);
 
   const loadStoredVerificationState = () => {
     const storedScore = Number(localStorage.getItem("profile_verification_score") || 0);
@@ -308,10 +307,17 @@ export default function Dashboard({ token, userId, go }) {
     let completed = 0;
 
     if (paypal) completed += 35;
-    if (utilityBillReviewStatus === "verified") completed += 35;
+
+    if (
+      utilityBillReviewStatus === "verified" ||
+      profileVerificationScore > 0
+    ) {
+      completed += 35;
+    }
+
     if (score) completed += 30;
 
-    return completed;
+    return Math.min(completed, 100);
   };
 
   const completion = profileCompletion();
@@ -324,28 +330,18 @@ export default function Dashboard({ token, userId, go }) {
 
       <div className="relative w-full max-w-[1280px] bg-white/70 backdrop-blur-2xl border border-white/90 shadow-[0_4px_40px_-10px_rgba(0,0,0,0.05)] rounded-[2rem] p-8 md:p-12 overflow-hidden flex flex-col gap-10">
         
-        {/* Header with logo */}
+        {/* Header */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 shadow-sm flex items-center justify-center overflow-hidden p-2">
-              <img
-                src={fingerprintLogo}
-                alt="Settl Logo"
-                className="w-full h-full object-contain"
-              />
+          <div>
+            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
+              Settl Dashboard
             </div>
-
-            <div>
-              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                Settl Dashboard
-              </div>
-              <div className="text-2xl font-bold text-slate-900 tracking-tight">
-                Profile Verification Overview
-              </div>
+            <div className="text-2xl font-bold text-slate-900 tracking-tight">
+              Profile Verification Overview
             </div>
           </div>
 
-          {/* ✅ Get Verified button moved from navbar */}
+          {/* Get Verified button moved from navbar */}
           {kycVerified ? (
             <button
               disabled
@@ -703,3 +699,4 @@ function TopStat({ label, value, highlight }) {
     </div>
   );
 }
+``
