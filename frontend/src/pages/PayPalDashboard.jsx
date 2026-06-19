@@ -111,21 +111,6 @@ const Icons = {
     </svg>
   ),
 
-  Check: () => (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="#10b981"
-      strokeWidth="3"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  ),
-
   Trash: () => (
     <svg
       width="14"
@@ -169,101 +154,6 @@ export default function PayPalDashboard({ go }) {
   const authToken = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${authToken}` };
 
-  /* =========================
-     Stable Demo Data
-  ========================= */
-  const monthlyData = [
-    { month: "Jan", val: 4200 },
-    { month: "Feb", val: 4350 },
-    { month: "Mar", val: 4480 },
-    { month: "Apr", val: 4630 },
-    { month: "May", val: 4780 },
-    { month: "Jun", val: 4920 },
-  ];
-
-  const mockTx = [
-    {
-      id: "TX-9281",
-      client: "Upwork Global Inc.",
-      amount: "+$1,240.00",
-      date: "June 14",
-      status: "Verified",
-      source: "PayPal",
-    },
-    {
-      id: "TX-8820",
-      client: "DigitalOcean LLC",
-      amount: "-$42.00",
-      date: "June 12",
-      status: "Processed",
-      source: "Bank",
-    },
-    {
-      id: "TX-7712",
-      client: "Stripe Payout",
-      amount: "+$2,800.00",
-      date: "June 10",
-      status: "Verified",
-      source: "Stripe",
-    },
-    {
-      id: "TX-4401",
-      client: "Fiverr International",
-      amount: "+$650.00",
-      date: "June 08",
-      status: "Verified",
-      source: "PayPal",
-    },
-  ];
-
-  /* =========================
-     Stable Graph Helpers
-  ========================= */
-  const chartWidth = 720;
-  const chartHeight = 280;
-  const padding = 42;
-
-  const rawMax = Math.max(...monthlyData.map((d) => d.val));
-  const rawMin = Math.min(...monthlyData.map((d) => d.val));
-
-  // Wider visual range so chart doesn’t look too volatile
-  const minValue = Math.max(0, rawMin - 800);
-  const maxValue = rawMax + 800;
-
-  const getX = (index) => {
-    return padding + (index * (chartWidth - padding * 2)) / (monthlyData.length - 1);
-  };
-
-  const getY = (value) => {
-    return (
-      chartHeight -
-      padding -
-      ((value - minValue) / (maxValue - minValue || 1)) * (chartHeight - padding * 2)
-    );
-  };
-
-  const points = monthlyData.map((d, i) => ({
-    x: getX(i),
-    y: getY(d.val),
-  }));
-
-  const linePath = points.reduce((path, point, i, arr) => {
-    if (i === 0) return `M ${point.x} ${point.y}`;
-    const prev = arr[i - 1];
-    const cx = (prev.x + point.x) / 2;
-    return `${path} Q ${cx} ${prev.y}, ${point.x} ${point.y}`;
-  }, "");
-
-  const areaPath = `
-    ${linePath}
-    L ${points[points.length - 1].x} ${chartHeight - padding}
-    L ${points[0].x} ${chartHeight - padding}
-    Z
-  `;
-
-  /* =========================
-     Load Sources
-  ========================= */
   useEffect(() => {
     loadSources();
   }, []);
@@ -286,30 +176,7 @@ export default function PayPalDashboard({ go }) {
         isDemo: false,
       }));
 
-      const demoSources = [
-        {
-          id: "stripe_demo",
-          type: "stripe",
-          name: "Stripe Live",
-          account: "settl@stripe.com",
-          transactions: 842,
-          lastSync: "1 hour ago",
-          isPrimary: false,
-          isDemo: true,
-        },
-        {
-          id: "bank_demo",
-          type: "bank",
-          name: "Commercial Bank",
-          account: "•••• 4829",
-          transactions: 156,
-          lastSync: "2 days ago",
-          isPrimary: false,
-          isDemo: true,
-        },
-      ];
-
-      setSources([...mappedReal, ...demoSources]);
+      setSources(mappedReal);
     } catch (err) {
       console.error("Failed to load sources", err);
     }
@@ -317,33 +184,24 @@ export default function PayPalDashboard({ go }) {
     setLoading(false);
   };
 
-  /* =========================
-     Actions
-  ========================= */
   const handleSync = async (source) => {
     setSyncingId(source.id);
 
-    if (!source.isDemo) {
-      try {
-        await axios.post(`${API}/api/score/compute`, {}, { headers });
-        await loadSources();
-      } catch (err) {
-        console.error("Sync failed", err);
-      }
-    } else {
-      await new Promise((r) => setTimeout(r, 1000));
+    try {
+      await axios.post(`${API}/api/score/compute`, {}, { headers });
+      await loadSources();
+    } catch (err) {
+      console.error("Sync failed", err);
     }
 
     setSyncingId(null);
   };
 
   const handleSetPrimary = async (source) => {
-    if (!source.isDemo) {
-      try {
-        await axios.patch(`${API}/api/connect/${source.id}/primary`, {}, { headers });
-      } catch (err) {
-        console.error("Primary set failed", err);
-      }
+    try {
+      await axios.patch(`${API}/api/connect/${source.id}/primary`, {}, { headers });
+    } catch (err) {
+      console.error("Primary set failed", err);
     }
 
     setSources(sources.map((s) => ({ ...s, isPrimary: s.id === source.id })));
@@ -352,14 +210,10 @@ export default function PayPalDashboard({ go }) {
   const executeDisconnect = async (source) => {
     setDisconnectingId(source.id);
 
-    if (!source.isDemo) {
-      try {
-        await axios.delete(`${API}/api/connect/${source.id}`, { headers });
-      } catch (err) {
-        console.error("Disconnect failed", err);
-      }
-    } else {
-      await new Promise((r) => setTimeout(r, 600));
+    try {
+      await axios.delete(`${API}/api/connect/${source.id}`, { headers });
+    } catch (err) {
+      console.error("Disconnect failed", err);
     }
 
     setSources(sources.filter((s) => s.id !== source.id));
@@ -367,9 +221,6 @@ export default function PayPalDashboard({ go }) {
     setDisconnectingId(null);
   };
 
-  /* =========================
-     Derived UI Data
-  ========================= */
   const sortedSources = useMemo(
     () =>
       [...sources].sort((a, b) =>
@@ -384,7 +235,7 @@ export default function PayPalDashboard({ go }) {
   );
 
   const hasRealPaypal = useMemo(
-    () => sources.some((s) => !s.isDemo && s.type === "paypal"),
+    () => sources.some((s) => s.type === "paypal"),
     [sources]
   );
 
@@ -480,7 +331,6 @@ export default function PayPalDashboard({ go }) {
                       : "border-slate-200 hover:border-slate-300"
                   }`}
                 >
-                  {/* Header */}
                   <div className="p-4 border-b border-slate-100 flex items-start justify-between">
                     <div className="flex items-center gap-3">
                       <div
@@ -519,7 +369,6 @@ export default function PayPalDashboard({ go }) {
                     )}
                   </div>
 
-                  {/* Disconnect confirm */}
                   {confirmDisconnectId === s.id ? (
                     <div className="absolute bottom-0 left-0 right-0 p-3 bg-red-50 border-t border-red-100 flex flex-col gap-2 z-10">
                       <span className="text-xs font-bold text-red-800 text-center">
@@ -598,7 +447,7 @@ export default function PayPalDashboard({ go }) {
                 Avg Ticket
               </div>
               <div className="text-2xl font-bold font-mono text-slate-900">
-                $480
+                --
               </div>
             </div>
           </div>
@@ -607,7 +456,7 @@ export default function PayPalDashboard({ go }) {
         {/* RIGHT COLUMN */}
         <div className="lg:col-span-8 space-y-6">
 
-          {/* Income Trend Chart */}
+          {/* No hardcoded chart */}
           <div className="bg-white/70 backdrop-blur-2xl border border-white/80 rounded-[2.5rem] p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
             <div className="flex items-center justify-between mb-8 gap-4">
               <div>
@@ -615,169 +464,43 @@ export default function PayPalDashboard({ go }) {
                   Verified Income Trends
                 </h3>
                 <p className="text-xs text-slate-500 font-medium">
-                  Aggregated real-time flow from all linked pipelines
+                  Live trend data will appear here when transaction history is available.
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-emerald-100">
+              <div className="flex items-center gap-2 bg-slate-100 text-slate-500 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border border-slate-200">
                 <Icons.Trending />
-                Stable Growth
+                No Live Data
               </div>
             </div>
 
-            {/* Stable SVG Trend Graph */}
-            <div className="w-full overflow-x-auto">
-              <svg
-                viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-                className="w-full h-[280px]"
-                preserveAspectRatio="xMidYMid meet"
-              >
-                <defs>
-                  <linearGradient id="incomeFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#2563eb" stopOpacity="0.22" />
-                    <stop offset="100%" stopColor="#2563eb" stopOpacity="0.02" />
-                  </linearGradient>
-                </defs>
-
-                {/* Grid lines */}
-                {[0, 1, 2, 3, 4].map((i) => {
-                  const y = padding + (i * (chartHeight - padding * 2)) / 4;
-                  return (
-                    <line
-                      key={i}
-                      x1={padding}
-                      y1={y}
-                      x2={chartWidth - padding}
-                      y2={y}
-                      stroke="#e2e8f0"
-                      strokeDasharray="4 4"
-                    />
-                  );
-                })}
-
-                {/* Area */}
-                <path d={areaPath} fill="url(#incomeFill)" />
-
-                {/* Smooth line */}
-                <path
-                  d={linePath}
-                  fill="none"
-                  stroke="#2563eb"
-                  strokeWidth="3"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-
-                {/* Points + labels */}
-                {points.map((p, i) => (
-                  <g key={monthlyData[i].month}>
-                    <circle
-                      cx={p.x}
-                      cy={p.y}
-                      r="5"
-                      fill="white"
-                      stroke="#2563eb"
-                      strokeWidth="3"
-                    />
-                    <text
-                      x={p.x}
-                      y={p.y - 14}
-                      textAnchor="middle"
-                      fontSize="11"
-                      fontWeight="600"
-                      fill="#0f172a"
-                    >
-                      ${monthlyData[i].val}
-                    </text>
-                  </g>
-                ))}
-
-                {/* Month labels */}
-                {points.map((p, i) => (
-                  <text
-                    key={monthlyData[i].month}
-                    x={p.x}
-                    y={chartHeight - 10}
-                    textAnchor="middle"
-                    fontSize="11"
-                    fill="#64748b"
-                    fontWeight="600"
-                  >
-                    {monthlyData[i].month}
-                  </text>
-                ))}
-              </svg>
+            <div className="w-full min-h-[220px] flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60">
+              <div className="text-center">
+                <div className="text-sm font-semibold text-slate-700">
+                  No real income trend data available yet
+                </div>
+                <div className="text-xs text-slate-400 mt-2 max-w-md">
+                  Connect live payment sources and expose monthly income history from the backend to render this chart.
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Recent ledger */}
+          {/* No hardcoded ledger */}
           <div className="bg-white/70 backdrop-blur-2xl border border-white/80 rounded-[2.5rem] p-8 shadow-[0_4px_30px_rgba(0,0,0,0.03)]">
             <h3 className="font-bold text-slate-900 mb-6 text-lg tracking-tight">
               Recent Handshakes
             </h3>
 
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-200">
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Entity
-                    </th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                      Pipeline
-                    </th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">
-                      Amount
-                    </th>
-                    <th className="pb-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-right">
-                      Signature
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-slate-100">
-                  {mockTx.map((t) => (
-                    <tr
-                      key={t.id}
-                      className="group hover:bg-slate-50/80 transition-colors"
-                    >
-                      <td className="py-4 pr-4">
-                        <div className="text-sm font-bold text-slate-800">
-                          {t.client}
-                        </div>
-                        <div className="text-[10px] text-slate-400 font-medium font-mono mt-0.5">
-                          {t.id} • {t.date}
-                        </div>
-                      </td>
-
-                      <td className="py-4">
-                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-md text-[9px] font-bold uppercase tracking-wider">
-                          {t.source}
-                        </span>
-                      </td>
-
-                      <td className="py-4 text-right">
-                        <div
-                          className={`text-sm font-bold font-mono ${
-                            t.amount.startsWith("+")
-                              ? "text-emerald-600"
-                              : "text-slate-800"
-                          }`}
-                        >
-                          {t.amount}
-                        </div>
-                      </td>
-
-                      <td className="py-4 text-right">
-                        <div className="flex items-center justify-end gap-1.5 text-[10px] font-bold text-emerald-500 uppercase tracking-widest">
-                          <Icons.Check />
-                          {t.status}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="min-h-[180px] flex items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50/60">
+              <div className="text-center">
+                <div className="text-sm font-semibold text-slate-700">
+                  No live transaction ledger available yet
+                </div>
+                <div className="text-xs text-slate-400 mt-2 max-w-md">
+                  Replace this section with real transaction records once your backend exposes a transactions endpoint.
+                </div>
+              </div>
             </div>
           </div>
 
