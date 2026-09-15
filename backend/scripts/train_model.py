@@ -6,11 +6,18 @@ The model is saved to model/settl_model.pkl
 import numpy as np
 import pandas as pd
 import joblib
-import shap
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import roc_auc_score, precision_score
 import xgboost as xgb
+
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    shap = None
+    SHAP_AVAILABLE = False
+    print("NOTE: shap not installed — explainer step will be skipped.")
 
 MODEL_DIR = Path(__file__).parent.parent / "model"
 MODEL_DIR.mkdir(exist_ok=True)
@@ -160,12 +167,11 @@ def train():
         learning_rate=0.05,
         subsample=0.8,
         colsample_bytree=0.8,
-        use_label_encoder=False,
         eval_metric="logloss",
         random_state=RANDOM_STATE,
         enable_categorical=False,
     )
-    model.fit(X_train, y_train, eval_set=[(X_test, y_test)], verbose=False)
+    model.fit(X_train, y_train, verbose=False)
 
     # Validate
     y_prob = model.predict_proba(X_test)[:, 1]
@@ -173,8 +179,8 @@ def train():
     y_pred = (y_prob >= 0.5).astype(int)
     precision = precision_score(y_test, y_pred, zero_division=0)
 
-    print(f"Validation AUC: {auc:.4f}  (target ≥ 0.78)")
-    print(f"Precision at 0.5: {precision:.4f}  (target ≥ 0.72)")
+    print(f"Validation AUC: {auc:.4f}  (target >= 0.78)")
+    print(f"Precision at 0.5: {precision:.4f}  (target >= 0.72)")
 
     if auc < 0.78:
         print("⚠ AUC below threshold — model saved anyway for demo use.")
@@ -184,12 +190,18 @@ def train():
     joblib.dump(model, model_path)
     print(f"Model saved to {model_path}")
 
-    # Build and save SHAP explainer
-    print("Building SHAP explainer...")
-    explainer = shap.TreeExplainer(model)
-    explainer_path = MODEL_DIR / "shap_explainer.pkl"
-    joblib.dump(explainer, explainer_path)
-    print(f"SHAP explainer saved to {explainer_path}")
+    # Build and save SHAP explainer (optional — scoring_service handles None)
+    if SHAP_AVAILABLE:
+        try:
+            print("Building SHAP explainer...")
+            explainer = shap.TreeExplainer(model)
+            explainer_path = MODEL_DIR / "shap_explainer.pkl"
+            joblib.dump(explainer, explainer_path)
+            print(f"SHAP explainer saved to {explainer_path}")
+        except Exception as e:
+            print(f"WARNING: SHAP explainer build failed ({e}) — skipping.")
+    else:
+        print("Skipping SHAP explainer (shap not installed).")
 
     # Save feature names for reference
     feature_names_path = MODEL_DIR / "feature_names.txt"

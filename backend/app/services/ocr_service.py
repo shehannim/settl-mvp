@@ -20,6 +20,37 @@ except ImportError:
 # ── BILLER PATTERNS ──────────────────────────────────────────────────
 
 BILLER_PATTERNS = {
+    "LECO": {
+        # NOTE: must stay before CEB — CEB's generic "electricity bill"
+        # pattern would otherwise swallow LECO bills.
+        "detect": [
+            r"lanka\s+electricity\s+company",
+            r"\bleco\b",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|consumer\s*name)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|consumer\s*(?:no|number)|electricity\s*account)\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"\b(\d{10})\b",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|total\s*due|total\s*amount|balance\s*payable|amount\s*payable|net\s*amount)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*date|payment\s*due\s*date|pay\s*before|payable\s*before|due\s*by)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:paid\s*on|payment\s*date|date\s*of\s*payment|last\s*payment)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
     "CEB": {
         "detect": [
             r"ceylon\s+electricity\s+board",
@@ -45,6 +76,36 @@ BILLER_PATTERNS = {
             ],
             "payment_date": [
                 r"(?:paid\s*on|payment\s*date|date\s*of\s*payment)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
+    "Dialog TV": {
+        # NOTE: must stay before Dialog — Dialog's bare "dialog" pattern
+        # would otherwise swallow Dialog TV bills.
+        "detect": [
+            r"dialog\s*tv",
+            r"dialog\s*television",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|subscriber\s*name)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|smart\s*card\s*(?:no|number)|viewing\s*card)\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period|subscription\s*period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|total\s*payable|amount\s*payable|total\s*amount|balance\s*due|monthly\s*rental)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*date|payment\s*due|pay\s*before|expiry\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:paid|payment\s*received|payment\s*date|recharged\s*on)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -75,6 +136,37 @@ BILLER_PATTERNS = {
             ],
             "payment_date": [
                 r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
+    "PEO TV": {
+        # NOTE: must stay before Mobitel/SLT — PEO TV bills carry SLT branding.
+        "detect": [
+            r"peo\s*tv",
+            r"\bpeotv\b",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|subscriber\s*name|account\s*holder)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|customer\s*(?:no|number)|telephone\s*(?:no|number))\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"\b(0\d{9})\b",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+                r"([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})\s*[-–]\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|net\s*payable|total\s*payable|amount\s*payable|total\s*amount|balance\s*due|current\s*charges|monthly\s*rental)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*(?:date|by)|payment\s*due\s*date|payment\s*due|pay\s*before|payable\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:payment\s*date|paid\s*on|date\s*of\s*payment|payment\s*received)\s*[-:\s]*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -114,6 +206,95 @@ BILLER_PATTERNS = {
         },
     },
 
+    "Hutch": {
+        "detect": [
+            r"\bhutch\b",
+            r"hutchison",
+            r"hutch\s*lanka",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|subscriber\s*name)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|mobile\s*(?:no|number))\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"\b(07[0-9]{8})\b",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|total\s*payable|amount\s*payable|total\s*amount|balance\s*due)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
+    "Airtel": {
+        "detect": [
+            r"\bairtel\b",
+            r"bharti\s*airtel",
+            r"airtel\s*lanka",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|subscriber\s*name)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|mobile\s*(?:no|number))\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"\b(07[0-9]{8})\b",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|total\s*payable|amount\s*payable|total\s*amount|balance\s*due)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
+    "Lanka Bell": {
+        "detect": [
+            r"lanka\s*bell",
+            r"\blankabell\b",
+        ],
+        "fields": {
+            "customer_name": [
+                r"(?:name|customer\s*name|subscriber\s*name|account\s*holder)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
+            ],
+            "account_number": [
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|customer\s*(?:no|number)|telephone\s*(?:no|number))\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"\b(0\d{9})\b",
+            ],
+            "billing_period": [
+                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+            ],
+            "amount_due": [
+                r"(?:amount\s*due|total\s*payable|amount\s*payable|total\s*amount|balance\s*due|monthly\s*rental)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
+                r"(?:rs\.?|lkr)\s*([\d,]+(?:\.\d{1,2})?)",
+            ],
+            "due_date": [
+                r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+            "payment_date": [
+                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+            ],
+        },
+    },
+
     "Water Board": {
         "detect": [
             r"national\s*water\s*supply",
@@ -149,9 +330,10 @@ BILLER_PATTERNS = {
 
 def extract_text_from_pdf(pdf_bytes: bytes) -> str:
     """
-    Two-stage text extraction:
-    Stage 1: pdfminer for digital PDFs.
-    Stage 2: Tesseract fallback for scanned PDFs.
+    Three-stage text extraction:
+    Stage 1: pdfminer for digital PDFs (instant, exact).
+    Stage 2: Baidu Unlimited-OCR VLM for scanned pages (accurate, slow on CPU).
+    Stage 3: Tesseract fallback for scanned PDFs.
     """
 
     text = ""
@@ -161,6 +343,21 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
             text = pdfminer_extract(io.BytesIO(pdf_bytes), laparams=LAParams())
         except Exception as e:
             print("pdfminer extraction failed:", e)
+
+    if len(text.strip()) >= 100:
+        return text or ""
+
+    # Stage 2: Baidu VLM (no-op '' when deps/model unavailable)
+    try:
+        from app.services.baidu_ocr_service import extract_text_with_baidu
+        baidu_text = extract_text_with_baidu(pdf_bytes)
+        if len(baidu_text.strip()) >= 100:
+            return baidu_text
+        # Even a short Baidu result beats nothing; keep as candidate.
+        if baidu_text.strip():
+            text = baidu_text
+    except Exception as e:
+        print("Baidu OCR stage failed:", e)
 
     if len(text.strip()) < 100 and TESSERACT_AVAILABLE:
         try:

@@ -45,3 +45,7 @@ uploads/
 *.bin
 # Allow model files
 !backend/model/*.pkl
+
+# Synthetic OCR training data (regenerable via make_bill_dataset.py)
+bill_data/
+runs/

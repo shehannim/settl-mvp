@@ -1,0 +1,25 @@
+# Optional OCR stack for Baidu Unlimited-OCR VLM (Stage 2 of extract_text_from_pdf).
+# The API runs fine WITHOUT these (falls back to pdfminer/tesseract).
+# Validated on Python 3.14, Windows, CPU-only, 2026-09-15.
+#
+# Install CPU torch first (pytorch CPU index), then the rest:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+#   pip install -r requirements-ocr.txt
+
+transformers==4.57.1
+accelerate==1.15.0
+safetensors==0.8.0
+tokenizers==0.22.2
+Pillow>=11
+pymupdf>=1.24
+einops==0.8.2
+timm==1.0.29
+addict
+easydict
+matplotlib
+huggingface-hub>=0.34
+
+# NOTE: paddlepaddle has no Python 3.14 wheel, so PaddleOCR/PaddleX cannot run
+# here — the Baidu Unlimited-OCR VLM above is the working Baidu engine.
+# NOTE: keep transformers pinned to 4.57.x (official recipe). transformers 5.x
+# degrades this model's output due to rotary/cache behavior changes.

@@ -1,6 +1,11 @@
 import numpy as np
 import joblib
-import shap
+try:
+    import shap
+    SHAP_AVAILABLE = True
+except ImportError:
+    shap = None
+    SHAP_AVAILABLE = False
 from pathlib import Path
 from typing import Dict, List, Tuple
 from datetime import datetime
@@ -75,36 +80,36 @@ FEATURE_ORDER = list(FEATURE_LABELS.keys())
 
 REASON_CODES = {
     "bill_ontime_rate": {
-        "pos": "Utility bills paid on time consistently — strong positive signal.",
-        "neg": "Utility bills not consistently paid on time — this reduces your score.",
+        "pos": "Utility bills paid on time consistently - strong positive signal.",
+        "neg": "Utility bills not consistently paid on time - this reduces your score.",
     },
     "income_cv": {
-        "pos": "Very stable monthly income — reduces lending risk.",
-        "neg": "High income variability — irregular earnings reduce your score.",
+        "pos": "Very stable monthly income - reduces lending risk.",
+        "neg": "High income variability - irregular earnings reduce your score.",
     },
     "income_gap_months": {
-        "pos": "No income gaps in the past year — consistent earnings.",
-        "neg": "Income gaps detected in the past year — this reduces your score.",
+        "pos": "No income gaps in the past year - consistent earnings.",
+        "neg": "Income gaps detected in the past year - this reduces your score.",
     },
     "income_source_count": {
-        "pos": "Multiple income platforms connected — strong diversity signal.",
-        "neg": "Only one income platform connected — add more to improve your score.",
+        "pos": "Multiple income platforms connected - strong diversity signal.",
+        "neg": "Only one income platform connected - add more to improve your score.",
     },
     "platform_account_age_months": {
-        "pos": "Long platform account history — proven track record.",
-        "neg": "Limited platform history — your score will improve over time.",
+        "pos": "Long platform account history - proven track record.",
+        "neg": "Limited platform history - your score will improve over time.",
     },
     "kyc_verified": {
-        "pos": "Identity verified — improves both score and confidence level.",
-        "neg": "Identity not fully verified — complete KYC to improve your score.",
+        "pos": "Identity verified - improves both score and confidence level.",
+        "neg": "Identity not fully verified - complete KYC to improve your score.",
     },
     "fraud_flag_count": {
-        "pos": "No fraud flags raised — clean profile.",
+        "pos": "No fraud flags raised - clean profile.",
         "neg": "Fraud flags on your profile reduce your confidence score.",
     },
     "bnpl_repayment_rate": {
         "pos": "BNPL instalments paid on time.",
-        "neg": "No BNPL history available — default penalty applied.",
+        "neg": "No BNPL history available - default penalty applied.",
     },
 }
 
@@ -122,6 +127,8 @@ def score_to_band(score: int) -> str:
 
 
 def compute_shap_values(feature_vector: np.ndarray) -> np.ndarray:
+    if not SHAP_AVAILABLE:
+        return np.zeros(len(FEATURE_ORDER))
     explainer = get_explainer()
     if explainer is None:
         return np.zeros(len(FEATURE_ORDER))
@@ -169,23 +176,23 @@ def build_improvement_tips(negative_factors: List[Dict]) -> List[Dict]:
     tips_map = {
         "income_source_count": {
             "heading": "Connect another income platform",
-            "body": "Adding Fiverr, Upwork, or Stripe could increase your score by 20–30 points.",
-            "estimated_gain": "+20–30 pts",
+            "body": "Adding Fiverr, Upwork, or Stripe could increase your score by 20-30 points.",
+            "estimated_gain": "+20-30 pts",
         },
         "bill_ontime_rate": {
             "heading": "Pay utility bills on time",
             "body": "Paying your CEB and Dialog bills before the due date for 3 consecutive months will improve this score.",
-            "estimated_gain": "+15–25 pts",
+            "estimated_gain": "+15-25 pts",
         },
         "bnpl_repayment_rate": {
             "heading": "Connect your Koko account",
             "body": "Your BNPL repayment history removes the default penalty on payment behaviour.",
-            "estimated_gain": "+10–15 pts",
+            "estimated_gain": "+10-15 pts",
         },
         "total_source_count": {
             "heading": "Connect more data sources",
             "body": "Each additional verified source adds to your confidence score and improves the score.",
-            "estimated_gain": "+10–20 pts",
+            "estimated_gain": "+10-20 pts",
         },
         "kyc_verified": {
             "heading": "Complete identity verification",
