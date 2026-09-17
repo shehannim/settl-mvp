@@ -155,7 +155,7 @@ BILLER_PATTERNS = {
                 r"\b(0\d{9})\b",
             ],
             "billing_period": [
-                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+                r"(?:billing\s*period|bill\s*period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
                 r"([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})\s*[-–]\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})",
             ],
             "amount_due": [
@@ -190,7 +190,7 @@ BILLER_PATTERNS = {
                 r"\b(07[0-9]{8})\b",
             ],
             "billing_period": [
-                r"(?:billing\s*period|bill\s*period|period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+                r"(?:billing\s*period|bill\s*period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
                 r"([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})\s*[-–]\s*([0-9]{1,2}/[0-9]{1,2}/[0-9]{4})",
             ],
             "amount_due": [
@@ -417,9 +417,28 @@ def get_lines(text: str) -> List[str]:
 def detect_biller(text: str) -> Optional[str]:
     """
     Identifies biller from extracted text.
+    SLT broadband bills carry both SLT and PeoTV branding — strong SLT
+    markers (summary of invoice / telephone+invoice numbers) must win over
+    the generic PEO TV patterns, otherwise the wrong parser runs and every
+    field comes back 'Not detected'.
     """
 
     text_lower = text.lower()
+
+    slt_markers = [
+        "sltmobitel",
+        "sri lanka telecom",
+        "summary of invoice",
+        "telephone number",
+        "total charges for the period",
+        "details of payments received",
+    ]
+    slt_hits = sum(1 for m in slt_markers if m in text_lower)
+    has_invoice = bool(re.search(r"\b\d{10}-\d{3,6}\b", text))
+    if slt_hits >= 2 or ("sltmobitel" in text_lower) or (
+        "summary of invoice" in text_lower and has_invoice
+    ):
+        return "Mobitel"
 
     for biller, config in BILLER_PATTERNS.items():
         for pattern in config["detect"]:
@@ -470,10 +489,10 @@ def clean_extracted_value(value: Optional[str]) -> Optional[str]:
 
 def find_value_after_label(text: str, label: str, max_lookahead: int = 6) -> Optional[str]:
     """
-    Finds a value that appears on the next non-empty line after a label.
-    Example:
-    Account Number
-    004 288 7993
+    Finds a value for a label, handling both layouts:
+    Same line:  "TELEPHONE NUMBER 0472251520" -> "0472251520"
+                "Account Number: 004 288 7993" -> "004 288 7993"
+    Next lines: "Account Number" \\n "004 288 7993" -> "004 288 7993"
     """
 
     lines = get_lines(text)
@@ -496,6 +515,13 @@ def find_value_after_label(text: str, label: str, max_lookahead: int = 6) -> Opt
         line_lower = line.lower()
 
         if label_lower == line_lower or label_lower in line_lower:
+            # 1) Same-line value: strip the label prefix + separators.
+            idx = line_lower.find(label_lower)
+            same_line = line[idx + len(label_lower):].strip(" :|-–\t")
+            same_line = clean_extracted_value(same_line)
+            if same_line and same_line.lower() not in bad_values:
+                return same_line
+            # 2) Fall back to following lines.
             for offset in range(1, max_lookahead + 1):
                 if i + offset < len(lines):
                     candidate = clean_extracted_value(lines[i + offset])
