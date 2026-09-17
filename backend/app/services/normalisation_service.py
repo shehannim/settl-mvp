@@ -14,7 +14,7 @@ FALLBACK_USD_LKR = 305.0
 async def get_usd_to_lkr_rate() -> float:
     """Fetches current USD to LKR exchange rate."""
     try:
-        async with httpx.AsyncClient() as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=4.0)) as client:
             resp = await client.get(
                 f"https://v6.exchangerate-api.com/v6/{settings.EXCHANGE_RATE_API_KEY}/pair/USD/LKR",
                 timeout=5.0
