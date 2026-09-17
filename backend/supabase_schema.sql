@@ -151,3 +151,10 @@ CREATE POLICY "scores_own_data" ON scores
 -- Run in Supabase Storage tab: create a bucket called "bills"
 -- Set it to private (not public)
 -- Enable encryption at rest (default in Supabase)
+
+-- ── MIGRATION: columns required by backend/routers (idempotent) ──
+ALTER TABLE users ADD COLUMN IF NOT EXISTS profile_verification_score INT DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS utility_bill_verified BOOLEAN DEFAULT FALSE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS utility_bill_review_status TEXT DEFAULT '';
+ALTER TABLE users ADD COLUMN IF NOT EXISTS utility_bill_name_match_score FLOAT DEFAULT 0;
+ALTER TABLE connected_sources ADD COLUMN IF NOT EXISTS is_primary BOOLEAN DEFAULT FALSE;
