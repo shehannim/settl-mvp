@@ -1,8 +1,17 @@
+"""DEPRECATED legacy PayPal router — not registered in app.main.
+
+Kept for reference only. Do not store raw access/refresh tokens.
+Use /api/connect/paypal (OAuth with hashed token storage) instead.
+"""
+import hashlib
 import httpx
+import logging
 import os
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from supabase import create_client
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/paypal", tags=["paypal"])
 
@@ -11,7 +20,14 @@ PAYPAL_CLIENT_SECRET = os.getenv("PAYPAL_CLIENT_SECRET")
 PAYPAL_REDIRECT_URI  = os.getenv("PAYPAL_REDIRECT_URI")
 PAYPAL_BASE          = "https://api-m.paypal.com"   # use sandbox: api-m.sandbox.paypal.com for testing
 
-supabase = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+
+def _get_supabase():
+    from supabase import create_client
+    url = os.getenv("SUPABASE_URL")
+    key = os.getenv("SUPABASE_KEY")
+    if not url or not key:
+        raise HTTPException(500, detail="Supabase not configured")
+    return create_client(url, key)
 
 
 class CodePayload(BaseModel):
@@ -21,7 +37,8 @@ class CodePayload(BaseModel):
 @router.post("/exchange-token")
 async def exchange_token(payload: CodePayload):
     """Exchange OAuth code for access token, then pull transactions."""
-    async with httpx.AsyncClient() as client:
+    supabase = _get_supabase()
+    async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=10.0)) as client:
         # 1. Get access token
         token_res = await client.post(
             f"{PAYPAL_BASE}/v1/oauth2/token",
@@ -46,11 +63,11 @@ async def exchange_token(payload: CodePayload):
         user_info = user_res.json()
         paypal_user_id = user_info.get("user_id") or user_info.get("sub")
 
-        # 3. Save tokens to Supabase
+        # 3. Save connection — store only a hash, never raw tokens.
+        token_hash = hashlib.sha256(access_token.encode()).hexdigest()
         supabase.table("paypal_connections").upsert({
             "paypal_user_id": paypal_user_id,
-            "access_token": access_token,
-            "refresh_token": tokens.get("refresh_token"),
+            "access_token_hash": token_hash,
             "email": user_info.get("email"),
         }).execute()
 
@@ -62,12 +79,12 @@ async def exchange_token(payload: CodePayload):
 
 async def pull_transactions(paypal_user_id: str, access_token: str):
     """Fetch last 24 months of transactions and store in Supabase."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
-    end_date   = datetime.utcnow()
+    end_date   = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=730)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=10.0)) as client:
         res = await client.get(
             f"{PAYPAL_BASE}/v1/reporting/transactions",
             params={
