@@ -2,10 +2,27 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.core.security import get_current_lender
 from app.core.database import get_supabase_admin
 from app.models.schemas import LoanOutcomeRequest
-from datetime import datetime
-import json
+from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/lender", tags=["lender"])
+
+
+def _safe_parse(val):
+    if val is None:
+        return []
+    if isinstance(val, (dict, list)):
+        return val
+    if isinstance(val, str):
+        try:
+            import json as _json
+            parsed = _json.loads(val)
+            return parsed if isinstance(parsed, (dict, list)) else []
+        except Exception:
+            return []
+    return []
 
 
 @router.get("/query/{settl_id}")
@@ -41,15 +58,30 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
 
     s = score_result.data[0]
 
+    # Lender thresholds (per-institution) — fall back to platform defaults.
+    lender_row = db.table("lenders").select("min_score, min_confidence").eq("id", lender["sub"]).execute()
+    min_score = 650
+    min_conf = 0.60
+    if lender_row.data:
+        try:
+            min_score = int(lender_row.data[0].get("min_score") or 650)
+            min_conf = float(lender_row.data[0].get("min_confidence") or 0.60)
+        except (TypeError, ValueError):
+            pass
+    meets_threshold = (s.get("score", 0) >= min_score) and (float(s.get("confidence", 0)) >= min_conf)
+
     # Log the lender query for audit
-    db.table("audit_log").insert({
-        "event": "lender_score_query",
-        "user_id": user_id,
-        "lender_id": lender["sub"],
-        "lender_institution": lender.get("institution", ""),
-        "score_queried": s["score"],
-        "queried_at": datetime.utcnow().isoformat(),
-    }).execute()
+    try:
+        db.table("audit_log").insert({
+            "event": "lender_score_query",
+            "user_id": user_id,
+            "lender_id": lender["sub"],
+            "lender_institution": lender.get("institution", ""),
+            "score_queried": s["score"],
+            "queried_at": datetime.now(timezone.utc).isoformat(),
+        }).execute()
+    except Exception as e:
+        logger.warning("Audit log insert failed: %s", e)
 
     return {
         "settl_id": settl_id,
@@ -57,8 +89,9 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
         "score": s["score"],
         "band": s["band"],
         "confidence": s["confidence"],
-        "top_positive_factors": json.loads(s["top_positive_factors"]) if s.get("top_positive_factors") else [],
-        "top_negative_factors": json.loads(s["top_negative_factors"]) if s.get("top_negative_factors") else [],
+        "top_positive_factors": _safe_parse(s.get("top_positive_factors")),
+        "top_negative_factors": _safe_parse(s.get("top_negative_factors")),
+        "meets_threshold": meets_threshold,
         "model_version": s["model_version"],
         "scored_at": s["computed_at"],
         # Never include: raw transactions, NIC, PayPal data, bill contents
@@ -82,7 +115,7 @@ async def report_outcome(body: LoanOutcomeRequest, lender: dict = Depends(get_cu
         "decision": body.decision,
         "loan_amount_lkr": body.loan_amount_lkr,
         "repayment_status": body.repayment_status or "pending",
-        "reported_at": datetime.utcnow().isoformat(),
+        "reported_at": datetime.now(timezone.utc).isoformat(),
     }).execute()
 
     # Count total labelled outcomes for retraining trigger
