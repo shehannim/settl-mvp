@@ -8,7 +8,7 @@ except ImportError:
     SHAP_AVAILABLE = False
 from pathlib import Path
 from typing import Dict, List, Tuple
-from datetime import datetime
+from datetime import datetime, timezone
 
 MODEL_PATH = Path(__file__).parent.parent.parent / "model" / "settl_model.pkl"
 MODEL_NATIVE_PATH = Path(__file__).parent.parent.parent / "model" / "settl_model.ubj"
@@ -355,5 +355,5 @@ def run_scoring(feature_vector: np.ndarray) -> Dict:
         "improvement_tips": tips,
         "categories": categories,
         "model_version": MODEL_VERSION,
-        "computed_at": datetime.utcnow().isoformat(),
+        "computed_at": datetime.now(timezone.utc).isoformat(),
     }
