@@ -1,7 +1,11 @@
 import re
+import logging
 import random
-from datetime import datetime
+import secrets
+from datetime import datetime, timezone
 from typing import Tuple
+
+logger = logging.getLogger(__name__)
 
 _otp_store: dict = {}
 
@@ -33,14 +37,16 @@ def validate_nic(nic: str) -> Tuple[bool, str]:
 
 
 def generate_otp(user_id: str, email: str = None) -> str:
-    otp = str(random.randint(100000, 999999))
+    # secrets = CSPRNG (random.randint is predictable). Never log the OTP value.
+    otp = f"{secrets.randbelow(900000) + 100000:06d}"
     _otp_store[user_id] = {
         "otp": otp,
-        "created_at": datetime.utcnow(),
+        "created_at": datetime.now(timezone.utc),
         "attempts": 0
     }
-    # ✅ Email is handled by EmailJS on the frontend
-    print(f"OTP generated for {user_id}: {otp}")
+    # Email delivery must happen server-side (see routers/kyc.py).
+    # Only log that an OTP was issued, never the value.
+    logger.info("OTP issued for user_id=%s", user_id[:8] + "...")
     return otp
 
 
@@ -58,7 +64,10 @@ def verify_otp(user_id: str, code: str) -> Tuple[bool, str]:
         del _otp_store[user_id]
         return False, "Too many attempts. Please request a new code."
 
-    elapsed = (datetime.utcnow() - record["created_at"]).seconds
+    created = record["created_at"]
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    elapsed = (datetime.now(timezone.utc) - created).total_seconds()
     if elapsed > 600:
         del _otp_store[user_id]
         return False, "OTP has expired. Please request a new code."
