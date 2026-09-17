@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from passlib.context import CryptContext
@@ -37,7 +37,7 @@ def create_access_token(
     to_encode = data.copy()
     to_encode["role"] = role
 
-    expire = datetime.utcnow() + (
+    expire = datetime.now(timezone.utc) + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
 
@@ -48,6 +48,41 @@ def create_access_token(
         settings.SECRET_KEY,
         algorithm=settings.ALGORITHM
     )
+
+
+def _oauth_secret() -> str:
+    return settings.OAUTH_STATE_SECRET or settings.SECRET_KEY
+
+
+def create_oauth_state(user_id: str) -> str:
+    """Stateless signed OAuth state — works across instances. No server store."""
+    expire = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.OAUTH_STATE_EXPIRE_MINUTES
+    )
+    return jwt.encode(
+        {"sub": user_id, "exp": expire, "purpose": "paypal_oauth"},
+        _oauth_secret(),
+        algorithm=settings.ALGORITHM,
+    )
+
+
+def decode_oauth_state(state: str) -> str:
+    """Returns user_id or raises 401. No fallback to another user."""
+    try:
+        payload = jwt.decode(state, _oauth_secret(), algorithms=[settings.ALGORITHM])
+    except JWTError:
+        from fastapi import HTTPException, status as _status
+        raise HTTPException(
+            status_code=_status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired OAuth state",
+        )
+    if payload.get("purpose") != "paypal_oauth" or not payload.get("sub"):
+        from fastapi import HTTPException, status as _status
+        raise HTTPException(
+            status_code=_status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid OAuth state",
+        )
+    return payload["sub"]
 
 
 # ✅ DECODE TOKEN
