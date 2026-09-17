@@ -34,12 +34,18 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ✅ ✅ ✅ FINAL CORS FIX (NO BLOCK, ALWAYS WORKS)
+# ✅ CORS — restrict to configured frontend in production.
+# FRONTEND_URL covers local dev (5173) and prod (set via env).
+_cors_origins = list({settings.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"})
+if settings.DEMO_RETURN_OTP:
+    logger.warning("DEMO_RETURN_OTP is enabled — OTPs will be returned in API responses. Never enable in production.")
+if settings.SECRET_KEY == "change-this-in-production":
+    logger.warning("SECRET_KEY is using the default value. Set a strong SECRET_KEY in production.")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],        # ✅ allow all origins
-    allow_credentials=False,   # ✅ MUST be False with "*"
+    allow_origins=_cors_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -66,3 +72,29 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/ready")
+async def ready():
+    """Dependency health: Supabase reachability + model load state."""
+    from app.services.scoring_service import get_model
+
+    checks: dict = {}
+    try:
+        from app.core.database import get_supabase_admin
+        import os
+        if not os.getenv("SUPABASE_URL") and not get_settings().SUPABASE_URL:
+            checks["database"] = "not_configured"
+        else:
+            db = get_supabase_admin()
+            db.table("users").select("id").limit(1).execute()
+            checks["database"] = "ok"
+    except Exception as e:
+        checks["database"] = f"error: {str(e)[:120]}"
+    try:
+        get_model()
+        checks["model"] = "ok"
+    except Exception as e:
+        checks["model"] = f"not_loaded: {str(e)[:120]}"
+    ok = checks.get("database") == "ok" and checks.get("model") == "ok"
+    return {"ready": ok, "checks": checks}
