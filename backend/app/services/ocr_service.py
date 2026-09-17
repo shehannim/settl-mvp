@@ -92,10 +92,10 @@ BILLER_PATTERNS = {
                 r"(?:name|customer\s*name|subscriber\s*name)\s*[:\-]?\s*([A-Z][A-Za-z\s\.]{3,80})",
             ],
             "account_number": [
-                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|smart\s*card\s*(?:no|number)|viewing\s*card)\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
+                r"(?:account\s*(?:no|number|#)|subscriber\s*(?:no|number)|smart\s*card\s*(?:no|number)?|viewing\s*card\s*(?:no\.?|number)?)\s*[:\-]?\s*([A-Z0-9\-\/\s]{6,25})",
             ],
             "billing_period": [
-                r"(?:billing\s*period|bill\s*period|period|subscription\s*period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
+                r"(?:billing\s*period|bill\s*period|subscription\s*period)\s*[:\-]?\s*([A-Za-z0-9\s\/\-\–\.]{5,80})",
             ],
             "amount_due": [
                 r"(?:amount\s*due|total\s*payable|amount\s*payable|total\s*amount|balance\s*due|monthly\s*rental)\s*[:\-]?\s*(?:rs\.?|lkr)?\s*([\d,]+(?:\.\d{1,2})?)",
@@ -105,7 +105,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due|pay\s*before|expiry\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|payment\s*received|payment\s*date|recharged\s*on)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|payment\s*received|payment\s*date|recharged\s*on)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -135,7 +135,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due|payment\s*due\s*date|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -231,7 +231,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -261,7 +261,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -290,7 +290,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|payment\s*received|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -319,7 +319,7 @@ BILLER_PATTERNS = {
                 r"(?:due\s*date|payment\s*due\s*date|pay\s*before)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
             "payment_date": [
-                r"(?:paid|date\s*of\s*payment|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
+                r"(?:paid\s*(?:on)?|date\s*of\s*payment|payment\s*date)\s*[:\-]?\s*([0-9]{1,2}[\/\-\.\s][A-Za-z0-9]{1,9}[\/\-\.\s][0-9]{2,4})",
             ],
         },
     },
@@ -425,18 +425,14 @@ def detect_biller(text: str) -> Optional[str]:
 
     text_lower = text.lower()
 
-    slt_markers = [
-        "sltmobitel",
-        "sri lanka telecom",
-        "summary of invoice",
-        "telephone number",
-        "total charges for the period",
-        "details of payments received",
-    ]
-    slt_hits = sum(1 for m in slt_markers if m in text_lower)
+    # Pure PEO TV statements also carry "Sri Lanka Telecom" branding, so only
+    # force the SLT parser when there is real broadband-invoice evidence.
     has_invoice = bool(re.search(r"\b\d{10}-\d{3,6}\b", text))
-    if slt_hits >= 2 or ("sltmobitel" in text_lower) or (
-        "summary of invoice" in text_lower and has_invoice
+    if (
+        "sltmobitel" in text_lower
+        or "summary of invoice" in text_lower
+        or "total charges for the period" in text_lower
+        or (has_invoice and "telephone number" in text_lower)
     ):
         return "Mobitel"
 
@@ -645,6 +641,7 @@ def extract_customer_name_line(text: str) -> Optional[str]:
     """
     Extracts only the single customer-name line.
     Prevents address lines from being mixed into name.
+    Falls back to 'Customer Name: <value>' labelled layout.
     """
 
     lines = get_lines(text)
@@ -653,7 +650,33 @@ def extract_customer_name_line(text: str) -> Optional[str]:
         if re.match(r"^(Mr|Mrs|Ms|Miss|Dr)\.?\s+", line, re.IGNORECASE):
             return clean_extracted_value(line)
 
+    labelled = find_value_after_label(text, "Customer Name")
+    if labelled:
+        return trim_name_value(labelled)
+
     return None
+
+
+def trim_name_value(value: Optional[str]) -> Optional[str]:
+    """Strips trailing bill-label words captured by greedy name regexes.
+
+    e.g. 'Mr. Shehan Gunasekara Billing Period' -> 'Mr. Shehan Gunasekara'.
+    Without this, fuzzy identity matching scores ~0.4 on the user's own bill.
+    """
+    if not value:
+        return value
+    stop = {
+        "billing", "bill", "account", "invoice", "period", "date",
+        "payment", "due", "total", "telephone", "mobile", "customer",
+        "summary", "details", "paid",
+    }
+    words = str(value).split()
+    kept = []
+    for w in words:
+        if w.lower().strip(":.") in stop and len(kept) >= 2:
+            break
+        kept.append(w)
+    return clean_extracted_value(" ".join(kept))
 
 
 def extract_billing_date(text: str, billing_period: Optional[str]) -> Optional[str]:
@@ -727,6 +750,16 @@ def extract_payment_info(text: str) -> tuple[Optional[str], Optional[str]]:
         if date_match:
             payment_date = date_match.group(1)
 
+    # Generic fallback: 'Paid on 04/01/2026' / 'Payment received 04/01/2026'.
+    if not payment_date:
+        date_match = re.search(
+            r"(?:Paid\s*on|Payment\s*received|Payment\s*date)[-\s:]*(\d{1,2}/\d{1,2}/\d{4})",
+            text,
+            re.IGNORECASE
+        )
+        if date_match:
+            payment_date = date_match.group(1)
+
     if payment_date and not payment_amount:
         idx = text.lower().find("physical payment")
         if idx != -1:
@@ -764,19 +797,32 @@ def extract_summary_amount_due_and_due_date(text: str) -> tuple[Optional[str], O
     amount_due = None
     due_date = None
 
+    # Prefer the explicit label — last-date heuristic misfires on simple
+    # layouts where the payment date comes after the due date in the text.
+    due_date = find_value_after_label(text, "Payment due date")
+    if not due_date:
+        due_match = re.search(
+            r"(?:Payment\s+due\s+date|Due\s+date)[\s\S]{0,160}?(\d{1,2}/\d{1,2}/\d{4})",
+            text,
+            re.IGNORECASE
+        )
+        if due_match:
+            due_date = due_match.group(1)
+
     summary_block = extract_summary_block(text)
 
     search_area = summary_block if summary_block else text
 
-    # Find due date first.
-    dates = re.findall(
-        r"\b\d{1,2}/\d{1,2}/\d{4}\b",
-        search_area
-    )
+    # Find due date first (only if label search missed).
+    if not due_date:
+        dates = re.findall(
+            r"\b\d{1,2}/\d{1,2}/\d{4}\b",
+            search_area
+        )
 
-    if dates:
-        # In the summary, payment due date is normally the last date.
-        due_date = dates[-1]
+        if dates:
+            # In the summary, payment due date is normally the last date.
+            due_date = dates[-1]
 
     # Find amounts.
     amounts = re.findall(
@@ -808,19 +854,6 @@ def extract_summary_amount_due_and_due_date(text: str) -> tuple[Optional[str], O
         )
         if amounts_before_due:
             amount_due = amounts_before_due[-1]
-
-    # If due date still missing, try label-based.
-    if not due_date:
-        due_date = find_value_after_label(text, "Payment due date")
-
-        if not due_date:
-            due_match = re.search(
-                r"(?:Payment\s+due\s+date|Due\s+date)[\s\S]{0,160}?(\d{1,2}/\d{1,2}/\d{4})",
-                text,
-                re.IGNORECASE
-            )
-            if due_match:
-                due_date = due_match.group(1)
 
     # Final fallback:
     # If bill has a summary date after total payable label, pick date near "Payment due date".
@@ -916,6 +949,28 @@ def extract_fields(text: str, biller: str) -> List[Dict]:
                     value = match.group(1).strip()
 
                 value = clean_extracted_value(value)
+                if field_name == "customer_name":
+                    value = trim_name_value(value)
+                elif field_name == "billing_period" and value:                    # Keep only a leading date range; drop trailing labels
+                    # e.g. '01/04/2026 - 30/04/2026 Billing Date' -> range only.
+                    range_match = re.match(
+                        r"(\d{1,2}/\d{1,2}/\d{4}\s*[-–]\s*\d{1,2}/\d{1,2}/\d{4})",
+                        value,
+                    )
+                    if range_match:
+                        value = range_match.group(1)
+                elif field_name == "account_number" and value:
+                    # Drop trailing label words, e.g. '4163119785 Customer Name'.
+                    # Account tokens always contain a digit — stop at the first
+                    # token without one.
+                    kept = []
+                    for tok in str(value).split():
+                        if re.search(r"\d", tok):
+                            kept.append(tok.strip(":|-–"))
+                        elif kept:
+                            break
+                    if kept:
+                        value = " ".join(kept)
                 confidence = 0.95 if value else 0.0
                 break
 
