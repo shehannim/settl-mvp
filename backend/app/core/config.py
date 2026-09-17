@@ -8,6 +8,13 @@ class Settings(BaseSettings):
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 10080  # 7 days
 
+    # Demo / debug — NEVER enable in production (exposes OTPs).
+    DEMO_RETURN_OTP: bool = False
+
+    # OAuth state signing (falls back to SECRET_KEY)
+    OAUTH_STATE_SECRET: str = ""
+    OAUTH_STATE_EXPIRE_MINUTES: int = 15
+
     # Supabase
     SUPABASE_URL: str = ""
     SUPABASE_KEY: str = ""
