@@ -138,4 +138,4 @@ class LoanOutcomeRequest(BaseModel):
 class LenderLoginRequest(BaseModel):
     email: EmailStr
     password: str
-    institution_name: str
+    institution_name: Optional[str] = None
