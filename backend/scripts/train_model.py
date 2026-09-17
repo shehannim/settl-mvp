@@ -185,10 +185,15 @@ def train():
     if auc < 0.78:
         print("⚠ AUC below threshold — model saved anyway for demo use.")
 
-    # Save model
+    # Save model — native .ubj (version-stable, preferred in production)
+    # + legacy .pkl (fallback). Per XGBoost docs, pickle is NOT stable
+    # across versions; save_model is.
     model_path = MODEL_DIR / "settl_model.pkl"
     joblib.dump(model, model_path)
     print(f"Model saved to {model_path}")
+    native_path = MODEL_DIR / "settl_model.ubj"
+    model.save_model(native_path)
+    print(f"Native model saved to {native_path}")
 
     # Build and save SHAP explainer (legacy/optional — production builds
     # live via scoring_service._build_live_explainer() to avoid

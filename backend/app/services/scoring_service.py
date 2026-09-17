@@ -11,8 +11,20 @@ from typing import Dict, List, Tuple
 from datetime import datetime
 
 MODEL_PATH = Path(__file__).parent.parent.parent / "model" / "settl_model.pkl"
+MODEL_NATIVE_PATH = Path(__file__).parent.parent.parent / "model" / "settl_model.ubj"
 EXPLAINER_PATH = Path(__file__).parent.parent.parent / "model" / "shap_explainer.pkl"
-MODEL_VERSION = "v1.0-synthetic"
+MODEL_VERSION = "v1.1-native"
+# Must match scripts/train_model.py — used when loading native .ubj format
+MODEL_PARAMS = {
+    "n_estimators": 200,
+    "max_depth": 5,
+    "learning_rate": 0.05,
+    "subsample": 0.8,
+    "colsample_bytree": 0.8,
+    "eval_metric": "logloss",
+    "random_state": 42,
+    "enable_categorical": False,
+}
 
 _model = None
 _explainer = None
@@ -41,22 +53,36 @@ def _build_live_explainer():
 
 def load_model():
     global _model, _explainer
-    if MODEL_PATH.exists():
+    # Prefer native XGBoost format (stable across xgb/python versions).
+    # Pickle embeds sklearn + python internals -> version warnings / breakage
+    # (local xgb 3.4.1/py3.14 vs Render xgb 2.0.3/py3.10).
+    if MODEL_NATIVE_PATH.exists():
+        try:
+            import xgboost as xgb
+            _model = xgb.XGBClassifier(**MODEL_PARAMS)
+            _model.load_model(MODEL_NATIVE_PATH)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"Native model load failed ({e}), falling back to pickle."
+            )
+            _model = None
+    if _model is None and MODEL_PATH.exists():
         _model = joblib.load(MODEL_PATH)
-        _explainer = None
-        if EXPLAINER_PATH.exists():
-            try:
-                _explainer = joblib.load(EXPLAINER_PATH)
-            except Exception as e:
-                import logging
-                logging.getLogger(__name__).warning(
-                    f"SHAP explainer pickle incompatible ({e}), building live instead."
-                )
-                _explainer = None
-        if _explainer is None:
-            _build_live_explainer()
-    else:
-        raise RuntimeError(f"Model not found at {MODEL_PATH}. Run scripts/train_model.py first.")
+    if _model is None:
+        raise RuntimeError(f"Model not found at {MODEL_NATIVE_PATH} or {MODEL_PATH}. Run scripts/train_model.py first.")
+    _explainer = None
+    if EXPLAINER_PATH.exists():
+        try:
+            _explainer = joblib.load(EXPLAINER_PATH)
+        except Exception as e:
+            import logging
+            logging.getLogger(__name__).warning(
+                f"SHAP explainer pickle incompatible ({e}), building live instead."
+            )
+            _explainer = None
+    if _explainer is None:
+        _build_live_explainer()
 
 
 def get_model():
