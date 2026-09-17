@@ -4,13 +4,16 @@ from app.core.database import get_supabase_admin
 from app.services.normalisation_service import (
     compute_income_features, compute_payment_features,
     compute_platform_features, compute_footprint_features,
-    build_feature_vector, get_usd_to_lkr_rate
+    build_feature_vector
 )
 from app.services.scoring_service import (
     run_scoring, compute_confidence_score, MODEL_VERSION
 )
-from datetime import datetime
+from datetime import datetime, timezone
 import json
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/score", tags=["score"])
 
@@ -51,16 +54,15 @@ async def compute_score(user: dict = Depends(get_current_user)):
             detail="HARD_FRAUD_FLAG: Profile has been flagged. Contact support."
         )
 
-    # ── PayPal income features ──
-    paypal_source = db.table("connected_sources").select("*").eq(
-        "user_id", user_id).eq("source", "paypal").execute()
+    # ── PayPal income features — single fetch of sources, no N+1 ──
+    sources_all = db.table("connected_sources").select("*").eq("user_id", user_id).execute()
+    all_sources = sources_all.data or []
+    paypal_rows = [s for s in all_sources if s.get("source") == "paypal"]
 
-    if paypal_source.data:
-        raw = paypal_source.data[0].get("income_features") or {}
-        income_feats = json.loads(raw) if isinstance(raw, str) else raw
-        income_feats["income_source_count"] = len(
-            db.table("connected_sources").select("source").eq("user_id", user_id).execute().data
-        )
+    if paypal_rows:
+        raw = paypal_rows[0].get("income_features") or {}
+        income_feats = json.loads(raw) if isinstance(raw, str) else dict(raw)
+        income_feats["income_source_count"] = len(all_sources)
     else:
         income_feats = {
             "income_cv": 1.0, "income_trend_slope": 0.0, "income_gap_months": 12,
@@ -76,15 +78,28 @@ async def compute_score(user: dict = Depends(get_current_user)):
     payment_feats = compute_payment_features(bills.data)
 
     # ── Platform features ──
-    sources = db.table("connected_sources").select("*").eq("user_id", user_id).execute()
-    platform_feats = compute_platform_features(sources.data)
+    platform_feats = compute_platform_features(all_sources)
 
-    # ── Footprint features ──
+    # ── Footprint / history — use REAL months of history ──
+    # date_range_months = len(monthly income) stored at connect time.
+    paypal_months = 0
+    if paypal_rows:
+        try:
+            paypal_months = int(paypal_rows[0].get("date_range_months") or 0)
+        except (TypeError, ValueError):
+            paypal_months = 0
+    bill_months = len(bills.data or [])
+    history_months = max(paypal_months, bill_months)
+    digital_tenure = max(
+        int(profile.get("digital_tenure_months") or 0),
+        history_months,
+    )
+    sources = type("S", (), {"data": all_sources})()  # keep len(sources.data) shape below
     footprint_feats = compute_footprint_features(
         {
-            "connected_source_count": len(sources.data),
-            "digital_tenure_months": income_feats.get("income_source_count", 0) * 12,
-            "business_continuity": min(len(bills.data) / 12.0, 1.0),
+            "connected_source_count": len(all_sources),
+            "digital_tenure_months": digital_tenure,
+            "business_continuity": min(bill_months / 12.0, 1.0),
             "kyc_verified": profile.get("kyc_verified", False),
             "identity_consistency_score": profile.get("identity_consistency_score", 0.5),
         },
@@ -108,8 +123,8 @@ async def compute_score(user: dict = Depends(get_current_user)):
 
     # ── Compute confidence ──
     confidence, confidence_breakdown = compute_confidence_score(
-        source_count=len(sources.data),
-        history_months=income_feats.get("income_source_count", 0) * 6,
+        source_count=len(all_sources),
+        history_months=history_months,
         data_completeness=payment_feats.get("bill_ontime_rate", 0.5),
         soft_flag_count=profile.get("fraud_flag_count", 0),
         identity_consistency=profile.get("identity_consistency_score", 0.5),
@@ -130,7 +145,7 @@ async def compute_score(user: dict = Depends(get_current_user)):
         "improvement_tips": score_result["improvement_tips"],
         "feature_vector": feature_vector.tolist(),
         "model_version": MODEL_VERSION,
-        "computed_at": datetime.utcnow().isoformat(),
+        "computed_at": datetime.now(timezone.utc).isoformat(),
     }
 
     db.table("scores").insert(score_record).execute()
@@ -198,7 +213,7 @@ async def get_score_history(user: dict = Depends(get_current_user)):
 
     result = db.table("scores").select(
         "score, confidence, band, computed_at"
-    ).eq("user_id", user_id).order("computed_at").execute()
+    ).eq("user_id", user_id).order("computed_at").limit(50).execute()
 
     return {"history": result.data}
 
