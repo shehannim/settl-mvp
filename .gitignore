@@ -45,3 +45,6 @@ uploads/
 *.bin
 # Allow model files
 !backend/model/*.pkl
+# SHAP explainer pickle is version-fragile (py3.11+ can't load on py3.10)
+# — production builds it live, never commit it
+backend/model/shap_explainer.pkl

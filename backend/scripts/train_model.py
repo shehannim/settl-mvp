@@ -190,7 +190,9 @@ def train():
     joblib.dump(model, model_path)
     print(f"Model saved to {model_path}")
 
-    # Build and save SHAP explainer (optional — scoring_service handles None)
+    # Build and save SHAP explainer (legacy/optional — production builds
+    # live via scoring_service._build_live_explainer() to avoid
+    # Python-version pickle incompatibility; do NOT commit this file)
     if SHAP_AVAILABLE:
         try:
             print("Building SHAP explainer...")

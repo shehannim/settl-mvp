@@ -18,17 +18,43 @@ _model = None
 _explainer = None
 
 
+def _build_live_explainer():
+    """Build TreeExplainer in-memory — avoids version-fragile pickle.
+
+    shap_explainer.pkl contains pickled code objects, so a file created
+    on Python 3.11+ fails on Render's Python 3.10 with:
+    'code expected at most 16 arguments, got 18'.
+    Building live from the loaded model works on any Python/SHAP combo.
+    """
+    global _explainer
+    if not SHAP_AVAILABLE or _model is None:
+        return None
+    try:
+        _explainer = shap.TreeExplainer(_model)
+        return _explainer
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning(f"SHAP live build failed: {e}")
+        _explainer = None
+        return None
+
+
 def load_model():
     global _model, _explainer
     if MODEL_PATH.exists():
         _model = joblib.load(MODEL_PATH)
+        _explainer = None
         if EXPLAINER_PATH.exists():
             try:
                 _explainer = joblib.load(EXPLAINER_PATH)
             except Exception as e:
                 import logging
-                logging.getLogger(__name__).warning(f"SHAP explainer failed to load: {e}")
+                logging.getLogger(__name__).warning(
+                    f"SHAP explainer pickle incompatible ({e}), building live instead."
+                )
                 _explainer = None
+        if _explainer is None:
+            _build_live_explainer()
     else:
         raise RuntimeError(f"Model not found at {MODEL_PATH}. Run scripts/train_model.py first.")
 
@@ -42,6 +68,8 @@ def get_model():
 
 def get_explainer():
     global _explainer
+    if _explainer is None and _model is not None and SHAP_AVAILABLE:
+        _build_live_explainer()
     return _explainer  # may be None — handled gracefully
 
 
@@ -133,10 +161,18 @@ def compute_shap_values(feature_vector: np.ndarray) -> np.ndarray:
     if explainer is None:
         return np.zeros(len(FEATURE_ORDER))
     try:
-        values = explainer.shap_values(feature_vector)
+        # New API (shap>=0.40): explainer(X) -> Explanation; old: shap_values(X)
+        try:
+            result = explainer(feature_vector)
+            values = result.values if hasattr(result, "values") else result
+        except Exception:
+            values = explainer.shap_values(feature_vector)
+        values = np.asarray(values)
+        if values.ndim == 3:  # (n_samples, n_features, n_classes) -> take class 1
+            values = values[:, :, 1] if values.shape[2] > 1 else values[:, :, 0]
         if isinstance(values, list):
-            values = values[1]
-        return values.flatten()
+            values = np.asarray(values[1] if len(values) > 1 else values[0])
+        return np.asarray(values).reshape(-1)[:len(FEATURE_ORDER)]
     except Exception as e:
         import logging
         logging.getLogger(__name__).warning(f"SHAP failed, using zeros: {e}")
