@@ -1,10 +1,15 @@
 import httpx
-from datetime import datetime, timedelta
+import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Dict
 from app.core.config import get_settings
 import base64
 
+logger = logging.getLogger(__name__)
+
 settings = get_settings()
+
+_HTTP_TIMEOUT = httpx.Timeout(15.0, connect=10.0)
 
 
 # ✅ STEP 1 — Generate PayPal OAuth URL (FIXED)
@@ -29,7 +34,7 @@ async def exchange_paypal_code(code: str) -> Optional[Dict]:
         f"{settings.PAYPAL_CLIENT_ID}:{settings.PAYPAL_CLIENT_SECRET}".encode()
     ).decode()
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         resp = await client.post(
             f"{settings.PAYPAL_BASE_URL}/v1/oauth2/token",
             headers={
@@ -44,7 +49,7 @@ async def exchange_paypal_code(code: str) -> Optional[Dict]:
         )
 
     if resp.status_code != 200:
-        print("❌ PayPal token exchange failed:", resp.text)
+        logger.warning("PayPal token exchange failed: %s", resp.text[:300])
         return None
 
     return resp.json()
@@ -54,14 +59,14 @@ async def exchange_paypal_code(code: str) -> Optional[Dict]:
 async def fetch_paypal_profile(access_token: str) -> Optional[Dict]:
     """Fetch user profile from PayPal."""
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         resp = await client.get(
             f"{settings.PAYPAL_BASE_URL}/v1/identity/openidconnect/userinfo?schema=openid",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
     if resp.status_code != 200:
-        print("❌ Profile fetch failed:", resp.text)
+        logger.warning("Profile fetch failed: %s", resp.text[:300])
         return None
 
     data = resp.json()
@@ -78,10 +83,10 @@ async def fetch_paypal_transactions(access_token: str, months: int = 24) -> List
     """Fetch transaction history from PayPal."""
 
     transactions = []
-    end_date = datetime.utcnow()
+    end_date = datetime.now(timezone.utc)
     start_date = end_date - timedelta(days=months * 30)
 
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         page = 1
 
         while True:
@@ -99,7 +104,7 @@ async def fetch_paypal_transactions(access_token: str, months: int = 24) -> List
             )
 
             if resp.status_code != 200:
-                print("❌ Transaction fetch failed:", resp.text)
+                logger.warning("Transaction fetch failed: %s", resp.text[:300])
                 break
 
             data = resp.json()
