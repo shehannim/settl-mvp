@@ -2,8 +2,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import NICVerifyRequest, OTPVerifyRequest, KYCStatusResponse
 from app.core.security import get_current_user
 from app.core.database import get_supabase_admin
+from app.core.config import get_settings
 from app.services.kyc_service import validate_nic, generate_otp, verify_otp
-from datetime import datetime
+from datetime import datetime, timezone
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/kyc", tags=["kyc"])
 
@@ -25,18 +29,22 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
 
     db.table("users").update({
         "nic_number": body.nic_number.upper().strip(),
-        "nic_validated_at": datetime.utcnow().isoformat(),
+        "nic_validated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", user_id).execute()
 
-    # ✅ Generate OTP and return it to frontend for EmailJS
+    # Generate OTP server-side. Delivery must be server-side email/SMS.
+    # Never return the OTP in production — DEMO_RETURN_OTP exists only for local dev.
     otp = generate_otp(user_id, user_email)
-
-    return {
+    settings = get_settings()
+    resp: dict = {
         "success": True,
-        "otp": otp,
         "email": user_email,
-        "message": "Verification code generated.",
+        "message": "Verification code sent to your email.",
     }
+    if settings.DEMO_RETURN_OTP:
+        logger.warning("Returning OTP in response (DEMO_RETURN_OTP=True, dev only)")
+        resp["otp"] = otp
+    return resp
 
 
 @router.post("/verify-otp")
@@ -51,7 +59,7 @@ async def verify_otp_endpoint(body: OTPVerifyRequest, user: dict = Depends(get_c
     db.table("users").update({
         "otp_verified": True,
         "kyc_verified": True,
-        "kyc_completed_at": datetime.utcnow().isoformat(),
+        "kyc_completed_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", user_id).execute()
 
     return {
@@ -61,7 +69,7 @@ async def verify_otp_endpoint(body: OTPVerifyRequest, user: dict = Depends(get_c
             "nic_verified": True,
             "otp_verified": True,
             "identity_confirmed": True,
-            "verified_at": datetime.utcnow().isoformat(),
+            "verified_at": datetime.now(timezone.utc).isoformat(),
         }
     }
 
