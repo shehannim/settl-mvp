@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
-from app.core.security import get_current_user
+from app.core.security import get_current_user, create_oauth_state, decode_oauth_state
 from app.core.database import get_supabase_admin
 from app.core.config import get_settings
 from app.services.paypal_service import (
@@ -14,24 +14,26 @@ from app.services.normalisation_service import (
     build_monthly_income,
     compute_income_features
 )
-from datetime import datetime
-import uuid
+from datetime import datetime, timezone
+import hashlib
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/connect", tags=["connect"])
 settings = get_settings()
 
-# ✅ TEMP state store (only for dev)
-_oauth_states: dict = {}
+
+def _hash_token(token: str) -> str:
+    # SHA-256, never Python's randomized hash() and never the raw token.
+    return hashlib.sha256(token.encode()).hexdigest()
 
 
 # ✅ STEP 1 — Start OAuth
 @router.get("/paypal")
 async def connect_paypal(user: dict = Depends(get_current_user)):
     user_id = user["sub"]
-
-    state = str(uuid.uuid4())
-    _oauth_states[state] = user_id
-
+    state = create_oauth_state(user_id)
     auth_url = get_paypal_auth_url(state)
     return {"auth_url": auth_url, "state": state}
 
@@ -40,18 +42,8 @@ async def connect_paypal(user: dict = Depends(get_current_user)):
 @router.get("/paypal/callback")
 async def paypal_callback(code: str, state: str):
 
-    # ✅ Get valid user_id
-    user_id = _oauth_states.get(state)
-
-    if not user_id:
-        print("⚠️ State missing — fallback to last known user")
-
-        if _oauth_states:
-            user_id = list(_oauth_states.values())[-1]
-        else:
-            raise HTTPException(status_code=400, detail="OAuth state missing")
-    else:
-        del _oauth_states[state]
+    # Stateless signed state — no fallback to another user.
+    user_id = decode_oauth_state(state)
 
     try:
         # ✅ Exchange code → token
@@ -67,17 +59,17 @@ async def paypal_callback(code: str, state: str):
         try:
             profile = await fetch_paypal_profile(access_token)
         except Exception as e:
-            print("Profile error:", e)
+            logger.warning("PayPal profile fetch failed: %s", e)
 
         # ✅ SAFE transactions
         transactions = []
         try:
             transactions = await fetch_paypal_transactions(access_token, months=24)
         except Exception as e:
-            print("Transaction error:", e)
+            logger.warning("PayPal transaction fetch failed: %s", e)
 
         # ✅ SAFE processing
-        usd_to_lkr = 1
+        usd_to_lkr = 1.0
         monthly_income = []
         income_features = {}
 
@@ -86,46 +78,57 @@ async def paypal_callback(code: str, state: str):
             monthly_income = build_monthly_income(transactions, usd_to_lkr)
             income_features = compute_income_features(monthly_income)
         except Exception as e:
-            print("Processing error:", e)
+            logger.warning("Income processing failed: %s", e)
 
         db = get_supabase_admin()
 
-        # ✅ ✅ ✅ FIXED UPSERT (NO DUPLICATES)
-        # 🆕 Added is_primary default to true if it's their first source
         existing_sources = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
         is_first_source = len(existing_sources.data) == 0
 
-        db.table("connected_sources").upsert(
-            {
-                "user_id": user_id,
-                "source": "paypal",
-                "account_name": profile.get("name", "") if profile else "",
-                "transaction_count": len(transactions),
-                "date_range_months": len(monthly_income),
-                "income_features": income_features,
-                "connected_at": datetime.utcnow().isoformat(),
-                "access_token_hash": str(hash(access_token)),
-                "is_primary": is_first_source, # 🆕 New field support
-            },
-            on_conflict="user_id,source"  # ✅ CRITICAL FIX
-        ).execute()
+        # is_primary column may not exist on older DBs — include only if supported.
+        # We attempt with is_primary, and retry without it on schema error.
+        base_row = {
+            "user_id": user_id,
+            "source": "paypal",
+            "account_name": (profile.get("name", "") if profile else ""),
+            "transaction_count": len(transactions),
+            "date_range_months": len(monthly_income),
+            "income_features": income_features,
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "access_token_hash": _hash_token(access_token) if access_token else "",
+        }
+        try:
+            db.table("connected_sources").upsert(
+                {**base_row, "is_primary": is_first_source},
+                on_conflict="user_id,source",
+            ).execute()
+        except Exception:
+            db.table("connected_sources").upsert(
+                base_row,
+                on_conflict="user_id,source",
+            ).execute()
 
-        # ✅ Update user stats
+        # ✅ Update user stats — tenure = actual months of history, not source_count*12
         sources = db.table("connected_sources")\
             .select("source")\
             .eq("user_id", user_id)\
             .execute()
 
-        db.table("users").update({
-            "connected_source_count": len(sources.data),
-            "digital_tenure_months": income_features.get("income_source_count", 0) * 12,
-        }).eq("id", user_id).execute()
+        try:
+            db.table("users").update({
+                "connected_source_count": len(sources.data),
+                "digital_tenure_months": int(len(monthly_income) or 0),
+            }).eq("id", user_id).execute()
+        except Exception as e:
+            logger.warning("User stats update failed: %s", e)
 
         # ✅ Redirect to frontend success page
         return RedirectResponse(f"{settings.FRONTEND_URL}/connect/paypal/success")
 
+    except HTTPException:
+        raise
     except Exception as e:
-        print("🔥 CALLBACK ERROR:", e)
+        logger.exception("PayPal callback failed")
         raise HTTPException(status_code=500, detail="Callback failed")
 
 
@@ -201,7 +204,7 @@ async def disconnect_source(source_name: str, user: dict = Depends(get_current_u
         return {"status": "success", "message": f"{source_name.capitalize()} disconnected"}
 
     except Exception as e:
-        print(f"🔥 DISCONNECT ERROR: {e}")
+        logger.exception("Disconnect failed for source=%s", source_name)
         raise HTTPException(status_code=500, detail="Failed to disconnect source")
 
 
@@ -228,5 +231,5 @@ async def set_primary_source(source_name: str, user: dict = Depends(get_current_
         return {"status": "success", "message": f"{source_name.capitalize()} set as primary"}
 
     except Exception as e:
-        print(f"🔥 SET PRIMARY ERROR: {e}")
+        logger.exception("Set primary failed for source=%s", source_name)
         raise HTTPException(status_code=500, detail="Failed to set primary source")
