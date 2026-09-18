@@ -53,6 +53,55 @@ const recentPayouts = [
 const formatLkr = (amount) =>
   `LKR ${new Intl.NumberFormat("en-LK").format(amount)}`;
 
+const formatCompact = (value) => `${Math.round(value / 1000)}k`;
+
+/* Builds a smooth (Catmull-Rom → Bézier) line + area path for trend points. */
+function buildTrendGeometry(values, width = 640, height = 260) {
+  const padL = 52;
+  const padR = 20;
+  const padT = 20;
+  const padB = 34;
+  const innerW = width - padL - padR;
+  const innerH = height - padT - padB;
+
+  const dataMin = Math.min(...values);
+  const dataMax = Math.max(...values);
+  const step = Math.max(10000, Math.ceil((dataMax - dataMin) / 4 / 10000) * 10000);
+  const min = Math.floor(dataMin / step) * step;
+  const max = Math.ceil(dataMax / step) * step;
+  const span = Math.max(max - min, 1);
+
+  const points = values.map((v, i) => ({
+    x: Math.round((padL + (i * innerW) / (values.length - 1)) * 10) / 10,
+    y: Math.round((padT + (1 - (v - min) / span) * innerH) * 10) / 10,
+    value: v,
+  }));
+
+  let line = `M ${points[0].x},${points[0].y}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[Math.max(0, i - 1)];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[Math.min(points.length - 1, i + 2)];
+    const c1x = Math.round((p1.x + (p2.x - p0.x) / 6) * 10) / 10;
+    const c1y = Math.round((p1.y + (p2.y - p0.y) / 6) * 10) / 10;
+    const c2x = Math.round((p2.x - (p3.x - p1.x) / 6) * 10) / 10;
+    const c2y = Math.round((p2.y - (p3.y - p1.y) / 6) * 10) / 10;
+    line += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x},${p2.y}`;
+  }
+  const area = `${line} L ${points[points.length - 1].x},${height - padB} L ${points[0].x},${height - padB} Z`;
+
+  const ticks = [];
+  for (let v = min; v <= max + step / 2; v += step) {
+    ticks.push({
+      value: v,
+      y: Math.round((padT + (1 - (v - min) / span) * innerH) * 10) / 10,
+    });
+  }
+
+  return { points, line, area, ticks, padL, padB, width, height };
+}
+
 export default function PayPalDashboard({ go }) {
   const [realSources, setRealSources] = useState([]);
 
@@ -82,6 +131,8 @@ export default function PayPalDashboard({ go }) {
   const displayedSources = hasLiveData ? liveSources : [demoSource];
   const hasPaypal = realSources.some((s) => s.source === "paypal");
   const hasPayoneer = realSources.some((s) => s.source === "payoneer");
+  const trend = buildTrendGeometry(monthlyIncome.map((item) => item.amount));
+  const peakValue = Math.max(...monthlyIncome.map((item) => item.amount));
   const totalTransactions = displayedSources.reduce(
     (total, source) => total + source.transactions,
     0,
@@ -90,7 +141,6 @@ export default function PayPalDashboard({ go }) {
     monthlyIncome.reduce((total, item) => total + item.amount, 0) /
       monthlyIncome.length,
   );
-  const highestIncome = Math.max(...monthlyIncome.map((item) => item.amount));
 
   return (
     <div className="min-h-[calc(100vh-72px)] bg-[#f8f9ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">
@@ -240,26 +290,115 @@ export default function PayPalDashboard({ go }) {
                 +17% from April
               </span>
             </div>
-            <div className="mt-8 flex h-56 items-end gap-3 border-b border-dashed border-slate-200 px-2 sm:gap-5">
-              {monthlyIncome.map((item) => (
-                <div
-                  key={item.month}
-                  className="group relative flex h-full flex-1 flex-col items-center justify-end gap-2"
-                >
-                  <span className="pointer-events-none absolute bottom-[calc(100%+8px)] rounded-md bg-slate-900 px-2 py-1 font-mono text-[10px] font-semibold text-white opacity-0 transition-opacity group-hover:opacity-100">
-                    {formatLkr(item.amount)}
-                  </span>
-                  <div
-                    className="w-full max-w-10 rounded-t-lg bg-[#004fc5] shadow-[0_6px_14px_rgba(0,79,197,0.18)] transition-colors group-hover:bg-[#003f9e]"
-                    style={{
-                      height: `${Math.round((item.amount / highestIncome) * 100)}%`,
-                    }}
-                  />
-                  <span className="pb-2 text-[10px] font-semibold text-slate-500">
-                    {item.month}
-                  </span>
-                </div>
-              ))}
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
+              <svg
+                viewBox={`0 0 ${trend.width} ${trend.height}`}
+                className="w-full"
+                role="img"
+                aria-label="Monthly income trend line chart"
+              >
+                <defs>
+                  <linearGradient id="incomeArea" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#004fc5" stopOpacity="0.22" />
+                    <stop offset="100%" stopColor="#004fc5" stopOpacity="0" />
+                  </linearGradient>
+                </defs>
+
+                {/* Gridlines + axis labels */}
+                {trend.ticks.map((tick) => (
+                  <g key={tick.value}>
+                    <line
+                      x1={trend.padL}
+                      x2={trend.width - 20}
+                      y1={tick.y}
+                      y2={tick.y}
+                      stroke="#e2e8f0"
+                      strokeWidth="1"
+                      strokeDasharray="4 4"
+                    />
+                    <text
+                      x={trend.padL - 10}
+                      y={tick.y + 4}
+                      textAnchor="end"
+                      className="fill-slate-400"
+                      fontSize="11"
+                      fontWeight="600"
+                    >
+                      {formatCompact(tick.value)}
+                    </text>
+                  </g>
+                ))}
+
+                {/* Area + trend line */}
+                <path d={trend.area} fill="url(#incomeArea)" />
+                <path
+                  d={trend.line}
+                  fill="none"
+                  stroke="#004fc5"
+                  strokeWidth="3"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                {/* Data points with hover values */}
+                {trend.points.map((point, i) => {
+                  const isPeak = monthlyIncome[i].amount === peakValue;
+                  const isLast = i === trend.points.length - 1;
+                  return (
+                    <g key={monthlyIncome[i].month} className="group">
+                      <circle cx={point.x} cy={point.y} r="14" fill="transparent" />
+                      {isPeak && (
+                        <circle
+                          cx={point.x}
+                          cy={point.y}
+                          r="9"
+                          fill="none"
+                          stroke="#004fc5"
+                          strokeOpacity="0.3"
+                          strokeWidth="2"
+                        />
+                      )}
+                      <circle
+                        cx={point.x}
+                        cy={point.y}
+                        r={isLast ? 5.5 : 4}
+                        fill="#ffffff"
+                        stroke="#004fc5"
+                        strokeWidth="3"
+                      />
+                      <text
+                        x={point.x}
+                        y={point.y - 14}
+                        textAnchor="middle"
+                        fontSize="11"
+                        fontWeight="700"
+                        className={`fill-slate-800 transition-opacity ${
+                          isLast ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                        }`}
+                        stroke="#f8fafc"
+                        strokeWidth="3"
+                        paintOrder="stroke"
+                      >
+                        {formatCompact(point.value)}k
+                      </text>
+                      <text
+                        x={point.x}
+                        y={trend.height - 10}
+                        textAnchor="middle"
+                        className="fill-slate-500"
+                        fontSize="11"
+                        fontWeight="600"
+                      >
+                        {monthlyIncome[i].month}
+                      </text>
+                    </g>
+                  );
+                })}
+              </svg>
+              <div className="mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-400">
+                <span>Values in LKR thousands</span>
+                <span>Hover points for exact amounts</span>
+              </div>
             </div>
           </article>
         </section>
