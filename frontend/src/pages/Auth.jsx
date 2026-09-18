@@ -5,7 +5,7 @@ import logo from "../assets/Settl Logo.png";
 const API =
   import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
-export default function Auth({ onAuthenticated }) {
+export default function Auth({ onAuthenticated, go }) {
   const [mode, setMode] = useState("register");
   const [form, setForm] = useState({
     firstName: "",
@@ -264,6 +264,17 @@ export default function Auth({ onAuthenticated }) {
                   .
                 </p>
               )}
+
+              <p className="mt-4 text-center text-xs text-slate-400">
+                Are you a lender?{" "}
+                <button
+                  type="button"
+                  onClick={() => go && go("lender-login")}
+                  className="font-bold text-[#004fc5] hover:underline cursor-pointer"
+                >
+                  Lender sign-in →
+                </button>
+              </p>
             </form>
           </div>
         </section>

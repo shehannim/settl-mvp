@@ -17,9 +17,13 @@ import PayoneerConnect from "./pages/PayoneerConnect.jsx";
 import PayoneerCallback from "./pages/PayoneerCallback.jsx";
 import PayoneerDashboard from "./pages/PayoneerDashboard.jsx";
 import PayoneerSuccess from "./pages/PayoneerSuccess.jsx";
+import LenderLogin from "./pages/LenderLogin.jsx";
+import LenderDashboard from "./pages/LenderDashboard.jsx";
 
 const onboardingPages = new Set([
   "auth",
+  "lender-login",
+  "lender-dashboard",
   "email-verify",
   "consent",
   "kyc",
@@ -96,7 +100,9 @@ export default function App() {
   };
 
   if (onboardingPages.has(page)) {
-    if (page === "auth") return <Auth onAuthenticated={completeAuth} />;
+    if (page === "auth") return <Auth onAuthenticated={completeAuth} go={go} />;
+    if (page === "lender-login") return <LenderLogin go={go} />;
+    if (page === "lender-dashboard") return <LenderDashboard go={go} />;
     if (page === "email-verify") return <EmailVerify go={go} onVerified={() => go("consent")} />;
     if (page === "consent") return <Consent go={go} />;
     if (page === "kyc") return <KYC token={token} go={go} />;
