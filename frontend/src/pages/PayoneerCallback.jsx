@@ -47,7 +47,7 @@ export default function PayoneerCallback({ go }) {
           throw new Error("Payoneer callback failed");
         }
         setStatus("success");
-        setTimeout(() => go && go("paypal-success"), 800);
+        setTimeout(() => go && go("payoneer-success"), 800);
       })
       .catch((err) => {
         console.error(err);
@@ -101,7 +101,7 @@ export default function PayoneerCallback({ go }) {
               Try Again
             </button>
             <button
-              onClick={() => go && go("paypal-dashboard")}
+              onClick={() => go && go("payoneer-dashboard")}
               className="w-full text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-colors mt-4 py-2"
             >
               Return to Dashboard

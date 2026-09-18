@@ -12,6 +12,8 @@ import PayPalConnect from "./pages/PayPalConnect.jsx";
 import PayPalCallback from "./pages/PayPalCallback.jsx";
 import PayoneerConnect from "./pages/PayoneerConnect.jsx";
 import PayoneerCallback from "./pages/PayoneerCallback.jsx";
+import PayoneerDashboard from "./pages/PayoneerDashboard.jsx";
+import PayoneerSuccess from "./pages/PayoneerSuccess.jsx";
 import PayPalDashboard from "./pages/PayPalDashboard.jsx";
 import PayPalSuccess from "./pages/PayPalSuccess.jsx";
 
@@ -193,7 +195,7 @@ export default function App() {
     }
 
     if (path.includes("/connect/payoneer/success")) {
-      setPage("paypal-success");
+      setPage("payoneer-success");
       return;
     }
 
@@ -249,6 +251,7 @@ export default function App() {
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
     { id: "paypal-dashboard", label: "Income" },
+    { id: "payoneer-dashboard", label: "Payoneer" },
     { id: "bill-upload", label: "Bills" },
   ];
 
@@ -604,6 +607,8 @@ export default function App() {
         {page === "payoneer-callback" && (
           <PayoneerCallback go={go} setUserId={setUserId} />
         )}
+        {page === "payoneer-success" && <PayoneerSuccess go={go} />}
+        {page === "payoneer-dashboard" && <PayoneerDashboard go={go} />}
         {page === "paypal-callback" && (
           <PayPalCallback go={go} setUserId={setUserId} />
         )}
