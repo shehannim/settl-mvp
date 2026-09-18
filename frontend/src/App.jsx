@@ -251,7 +251,6 @@ export default function App() {
   const tabs = [
     { id: "dashboard", label: "Dashboard" },
     { id: "paypal-dashboard", label: "Income" },
-    { id: "payoneer-dashboard", label: "Payoneer" },
     { id: "bill-upload", label: "Bills" },
   ];
 

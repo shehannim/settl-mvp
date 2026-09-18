@@ -23,6 +23,23 @@ const Icons = {
     </svg>
   ),
 
+  Payoneer: () => (
+    <svg
+      width="20"
+      height="20"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7v10" />
+      <path d="M8.5 9.5h5a2.5 2.5 0 0 1 0 5h-5" />
+    </svg>
+  ),
+
   Stripe: () => (
     <svg
       width="20"
@@ -168,7 +185,12 @@ export default function PayPalDashboard({ go }) {
       const mappedReal = realSources.map((s) => ({
         id: s.source,
         type: s.source,
-        name: s.source === "paypal" ? "PayPal Merchant" : s.source,
+        name:
+          s.source === "paypal"
+            ? "PayPal Merchant"
+            : s.source === "payoneer"
+            ? "Payoneer Payouts"
+            : s.source,
         account: s.account_name || "Connected Account",
         transactions: s.transaction_count || 0,
         lastSync: "Just now",
@@ -239,7 +261,13 @@ export default function PayPalDashboard({ go }) {
     [sources]
   );
 
+  const hasRealPayoneer = useMemo(
+    () => sources.some((s) => s.type === "payoneer"),
+    [sources]
+  );
+
   const incomeLabel = hasRealPaypal ? "Reconnect PayPal" : "Connect PayPal";
+  const payoneerLabel = hasRealPayoneer ? "Reconnect Payoneer" : "Connect Payoneer";
 
   if (loading) {
     return (
@@ -271,13 +299,22 @@ export default function PayPalDashboard({ go }) {
                 </p>
               </div>
 
-              <button
-                onClick={() => go && go("paypal-connect")}
-                className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-slate-900 transition shadow-sm"
-              >
-                <Icons.Plus />
-                {incomeLabel}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => go && go("paypal-connect")}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-slate-900 transition shadow-sm"
+                >
+                  <Icons.Plus />
+                  {incomeLabel}
+                </button>
+                <button
+                  onClick={() => go && go("payoneer-connect")}
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-[#ff4800] text-white rounded-full text-xs font-bold uppercase tracking-wider hover:bg-[#d63d00] transition shadow-sm"
+                >
+                  <Icons.Plus />
+                  {payoneerLabel}
+                </button>
+              </div>
             </div>
 
             {/* PayPal connect card */}
@@ -312,6 +349,38 @@ export default function PayPalDashboard({ go }) {
               </div>
             </div>
 
+            {/* Payoneer connect card — same design, brand accent only */}
+            <div className="mb-5 rounded-2xl bg-slate-950 text-white p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/50 mb-2">
+                    Payoneer Income
+                  </div>
+                  <div className="text-lg font-semibold">
+                    {hasRealPayoneer ? "Payoneer account active" : "Payoneer not connected"}
+                  </div>
+                  <div className="text-sm text-white/60 mt-1">
+                    {hasRealPayoneer
+                      ? "Your Payoneer source is ready for income-linked analysis."
+                      : "Connect Payoneer to pull real payout income data."}
+                  </div>
+                </div>
+
+                <div className="w-12 h-12 rounded-2xl bg-[#ff4800] text-white flex items-center justify-center shrink-0">
+                  <Icons.Payoneer />
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <button
+                  onClick={() => go && go("payoneer-connect")}
+                  className="px-4 py-2 rounded-full bg-white text-slate-900 text-sm font-semibold hover:bg-slate-100 transition"
+                >
+                  {payoneerLabel}
+                </button>
+              </div>
+            </div>
+
             {/* Sources */}
             <div className="space-y-4">
               {sources.length === 0 && (
@@ -337,6 +406,8 @@ export default function PayPalDashboard({ go }) {
                         className={`w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-inner ${
                           s.type === "paypal"
                             ? "bg-[#003087]"
+                            : s.type === "payoneer"
+                            ? "bg-[#ff4800]"
                             : s.type === "stripe"
                             ? "bg-[#635BFF]"
                             : "bg-slate-800"
@@ -344,6 +415,8 @@ export default function PayPalDashboard({ go }) {
                       >
                         {s.type === "paypal" ? (
                           <Icons.PayPal />
+                        ) : s.type === "payoneer" ? (
+                          <Icons.Payoneer />
                         ) : s.type === "stripe" ? (
                           <Icons.Stripe />
                         ) : (
