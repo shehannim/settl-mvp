@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import logo from "./assets/Settl Logo Black.png";
 import Auth from "./pages/Auth.jsx";
 import EmailVerify from "./pages/EmailVerify.jsx";
@@ -48,6 +48,21 @@ export default function App() {
     return localStorage.getItem("token") ? "dashboard" : "auth";
   });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // OAuth landings (PayPal/Payoneer redirects) must not stay in browser
+  // history: Back would otherwise walk into the provider's redirect chain,
+  // which instantly bounces forward to /connect/*/success again — an
+  // inescapable loop. Replace the URL with the app root on arrival.
+  useEffect(() => {
+    const isOAuthLanding =
+      window.location.search.includes("code=") ||
+      window.location.pathname.includes("/connect/paypal/success") ||
+      window.location.pathname.includes("/connect/payoneer/success");
+    if (isOAuthLanding) {
+      window.history.replaceState({}, "", "/");
+      localStorage.removeItem("current_page");
+    }
+  }, []);
 
   const go = (nextPage) => {
     localStorage.setItem("current_page", nextPage);
