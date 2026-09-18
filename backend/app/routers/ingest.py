@@ -1,7 +1,19 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from app.core.security import get_current_user
 from app.core.database import get_supabase_admin
-from app.services.ocr_service import process_bill
+from app.services.ocr_service import (
+    process_bill,
+    extract_text_with_provenance,
+    clean_text,
+    get_pdf_metadata,
+    is_payoneer_statement,
+    parse_payoneer_statement,
+)
+from app.services.normalisation_service import (
+    get_usd_to_lkr_rate,
+    build_monthly_income_async,
+    compute_income_features,
+)
 from app.services.kyc_service import fuzzy_name_match
 from datetime import datetime, timezone
 import hashlib
@@ -297,4 +309,132 @@ async def upload_utility_bill(
         "bill_name": bill_name,
         "registered_name": registered_name,
         "profile_verification_score": new_score,
+    }
+
+
+@router.post("/payoneer-statement")
+async def upload_payoneer_statement(
+    file: UploadFile = File(...),
+    user: dict = Depends(get_current_user),
+):
+    """Manual Payoneer statement import — the fallback while partner OAuth
+    credentials are pending. Parses payout rows and feeds them into the same
+    income engine as the OAuth flow (connected_sources source='payoneer')."""
+    user_id = user["sub"]
+    original_filename = file.filename or "payoneer-statement.pdf"
+
+    if not original_filename.lower().endswith(".pdf"):
+        raise HTTPException(status_code=422, detail="Only PDF files are accepted")
+
+    pdf_bytes = await file.read()
+    if len(pdf_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=422, detail="File too large. Maximum size is 10MB")
+    if len(pdf_bytes) < 100 or not pdf_bytes[:5].startswith(b"%PDF"):
+        raise HTTPException(status_code=422, detail="Invalid or corrupt PDF file")
+
+    metadata = get_pdf_metadata(pdf_bytes, filename=original_filename)
+    raw_text, provenance = extract_text_with_provenance(pdf_bytes)
+    metadata["extraction"] = provenance
+    cleaned = clean_text(raw_text)
+
+    if not is_payoneer_statement(cleaned):
+        raise HTTPException(
+            status_code=422,
+            detail="NOT_PAYONEER_STATEMENT: this file does not look like a "
+                   "Payoneer account statement.",
+        )
+
+    parsed = parse_payoneer_statement(cleaned)
+    transactions = parsed["transactions"]
+    if not transactions:
+        raise HTTPException(
+            status_code=422,
+            detail="NO_PAYOUTS_FOUND: no payout rows detected. Upload a monthly "
+                   "account statement, not a receipt or invoice.",
+        )
+
+    try:
+        usd_to_lkr = await get_usd_to_lkr_rate()
+        monthly_income = await build_monthly_income_async(transactions, usd_to_lkr)
+        income_features = compute_income_features(monthly_income)
+    except Exception as e:
+        logger.exception("Payoneer statement income processing failed")
+        raise HTTPException(status_code=500, detail="Income processing failed")
+
+    metadata["biller_detected"] = "Payoneer"
+    metadata["statement"] = {
+        "payout_count": len(transactions),
+        "skipped_rows": parsed["skipped"],
+        "months": len(monthly_income),
+    }
+
+    db = get_supabase_admin()
+    bill_id = str(uuid.uuid4())
+    storage_path = f"bills/{user_id}/{bill_id}.pdf"
+    try:
+        db.storage.from_("bills").upload(storage_path, pdf_bytes)
+    except Exception as e:
+        logger.warning("Storage upload failed: %s", e)
+
+    base_row = {
+        "user_id": user_id,
+        "source": "payoneer",
+        "account_name": parsed["account_name"] or "Payoneer statement",
+        "transaction_count": len(transactions),
+        "date_range_months": len(monthly_income),
+        "income_features": income_features,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "access_token_hash": "",
+    }
+    existing = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
+    try:
+        db.table("connected_sources").upsert(
+            {**base_row, "is_primary": len(existing.data) == 0},
+            on_conflict="user_id,source",
+        ).execute()
+    except Exception:
+        db.table("connected_sources").upsert(base_row, on_conflict="user_id,source").execute()
+
+    sources = db.table("connected_sources").select("source").eq("user_id", user_id).execute()
+    try:
+        db.table("users").update({
+            "connected_source_count": len(sources.data),
+            "digital_tenure_months": int(len(monthly_income) or 0),
+        }).eq("id", user_id).execute()
+    except Exception as e:
+        logger.warning("User stats update failed: %s", e)
+
+    pending_row = {
+        "id": bill_id,
+        "user_id": user_id,
+        "storage_path": storage_path,
+        "biller_detected": "Payoneer",
+        "fields": [
+            {"field_name": "payout_count", "extracted_value": str(len(transactions)),
+             "confidence": 1.0, "user_verified": False},
+            {"field_name": "months_covered", "extracted_value": str(len(monthly_income)),
+             "confidence": 1.0, "user_verified": False},
+        ],
+        "overall_confidence": 1.0,
+        "identity_match_score": 0.0,
+        "payment_on_time": None,
+        "status": "verified",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    try:
+        db.table("pending_bills").upsert({**pending_row, "metadata": metadata}).execute()
+    except Exception as e:
+        logger.warning("pending_bills metadata column missing, storing without it: %s", e)
+        db.table("pending_bills").upsert(pending_row).execute()
+
+    return {
+        "bill_id": bill_id,
+        "biller_detected": "Payoneer",
+        "source": "payoneer",
+        "payout_count": len(transactions),
+        "skipped_rows": parsed["skipped"],
+        "months_covered": len(monthly_income),
+        "account_name": parsed["account_name"],
+        "status": "verified",
+        "metadata": metadata,
     }

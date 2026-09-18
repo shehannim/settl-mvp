@@ -1177,6 +1177,122 @@ def _parse_date(date_str: str):
     return None
 
 
+# ── PAYONEER STATEMENT PARSER ────────────────────────────────────
+
+PAYONEER_MARKERS = [
+    "payoneer",
+    "payoneer account statement",
+    "account statement",
+]
+
+# Lines that are never income even with a positive amount.
+STATEMENT_EXCLUDE = re.compile(
+    r"withdrawal|annual\s*fee|service\s*fee|chargeback|refund|currency\s*conversion\s*fee",
+    re.IGNORECASE,
+)
+
+# Dates like 01/05/2026, 01-05-2026, 01.05.2026, 2026-05-01.
+STATEMENT_DATE = r"(\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}|\d{4}-\d{1,2}-\d{1,2})"
+
+
+def is_payoneer_statement(text: str) -> bool:
+    """True when the document looks like a Payoneer account statement."""
+    low = text.lower()
+    return "payoneer" in low and bool(
+        re.search(r"account\s*statement|transaction\s*(history|list)|balance", low)
+    )
+
+
+def parse_payoneer_statement(text: str) -> Dict:
+    """Extracts payout transactions from a Payoneer statement text.
+
+    Handles row layouts like:
+      01/05/2026  Fiverr payout  500.00 USD  1,250.00
+      04/05/2026  Upwork - Contract  EUR 320.50  ...
+    Returns {account_name, transactions:[shared income-tx shape], skipped}.
+    Only positive, non-fee rows are kept; currency defaults to USD.
+    """
+    lines = get_lines(text)
+    transactions: List[Dict] = []
+    skipped = 0
+
+    account_name = (
+        find_value_after_label(text, "Account holder")
+        or find_value_after_label(text, "Account name")
+        or extract_customer_name_line(text)
+        or ""
+    )
+
+    for i, line in enumerate(lines):
+        date_match = re.search(STATEMENT_DATE, line)
+        if not date_match:
+            continue
+        date_str = date_match.group(1)
+
+        # Amount + currency strictly AFTER the date (dotted dates like
+        # 01.05.2026 contain amount-shaped substrings — never scan the date).
+        rest = line[date_match.end():]
+        amt = re.search(
+            r"([A-Z]{3})?\s*([\d,]+\.\d{2})\s*([A-Z]{3})?", rest
+        )
+        if not amt:
+            skipped += 1
+            continue
+        currency = (amt.group(1) or amt.group(3) or "USD").upper()
+        if currency not in (
+            "USD", "EUR", "GBP", "AUD", "CAD", "SGD", "AED", "LKR", "INR", "JPY",
+        ):
+            # Probably a balance column or noise — try next amount on the line.
+            rest_after = rest[amt.end():]
+            amt2 = re.search(r"([\d,]+\.\d{2})\s*([A-Z]{3})?", rest_after)
+            if not amt2:
+                skipped += 1
+                continue
+            currency = (amt2.group(2) or "USD").upper()
+            amount_str = amt2.group(1)
+        else:
+            amount_str = amt.group(2)
+        try:
+            amount = float(amount_str.replace(",", ""))
+        except ValueError:
+            skipped += 1
+            continue
+
+        # Counterparty = text between date and amount, cleaned.
+        after_date = rest[:amt.start()].strip(" :-–|")
+        counterparty = clean_extracted_value(after_date) or ""
+
+        if amount <= 0 or STATEMENT_EXCLUDE.search(line) or STATEMENT_EXCLUDE.search(counterparty):
+            skipped += 1
+            continue
+
+        parsed = _parse_date(date_str.replace("-", "/").replace(".", "/"))
+        iso_date = parsed.strftime("%Y-%m-%d") if parsed else date_str
+
+        transactions.append({
+            "transaction_id": f"stmt-{iso_date}-{len(transactions)}",
+            "date": iso_date,
+            "amount": amount,
+            "amount_usd": amount if currency == "USD" else None,
+            "currency": currency,
+            "type": "statement_payout",
+            "status": "Completed",
+            "counterparty": counterparty,
+            "note": f"line {i + 1}",
+        })
+
+    # De-duplicate identical rows (headers/footers repeat in multi-page PDFs).
+    seen = set()
+    unique = []
+    for tx in transactions:
+        key = (tx["date"], tx["amount"], tx["currency"], tx["counterparty"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(tx)
+
+    return {"account_name": account_name, "transactions": unique, "skipped": skipped}
+
+
 # ── MAIN PIPELINE ────────────────────────────────────────────────────
 
 def process_bill(pdf_bytes: bytes, filename: Optional[str] = None) -> Dict:
