@@ -151,6 +151,9 @@ export default function BillUpload({ token }) {
             ...headers,
             "Content-Type": "multipart/form-data",
           },
+          // Scanned bills run VLM OCR server-side — allow time, but fail
+          // loudly instead of hanging forever.
+          timeout: 120000,
         });
 
         results[i] = res.data;
@@ -174,8 +177,11 @@ export default function BillUpload({ token }) {
           );
         }
       } catch (e) {
+        const status = e.response?.status;
         results[i] = {
-          error: e.response?.data?.detail || e.message || "Upload failed",
+          error:
+            (status ? `Upload failed (${status}): ` : "") +
+            (e.response?.data?.detail || e.message || "Upload failed"),
         };
       }
     }
@@ -185,7 +191,10 @@ export default function BillUpload({ token }) {
 
     const finalResult = results[results.length - 1];
 
-    if (finalResult?.status === "verified") {
+    if (finalResult?.error) {
+      setError(finalResult.error);
+      setSuccess("");
+    } else if (finalResult?.status === "verified") {
       setSuccess(
         "Utility bill verified successfully. Profile verification score updated."
       );

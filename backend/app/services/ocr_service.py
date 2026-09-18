@@ -447,12 +447,27 @@ def extract_text_with_provenance(pdf_bytes: bytes) -> tuple[str, Dict]:
         return (text or "", {"stage": stage, "timings_ms": timings,
                              "chars": len((text or "").strip())})
 
-    # Stage 2: Baidu VLM (no-op '' when deps/model unavailable)
+    # Stage 2: Baidu VLM (no-op '' when deps/model unavailable).
+    # Runs in a worker thread with a hard timeout — model load on small
+    # hosts (Render free) can take minutes / OOM, which otherwise hangs the
+    # upload request until the proxy kills it (browser shows Network Error).
     try:
+        import concurrent.futures
+        import os as _os
         from app.services.baidu_ocr_service import extract_text_with_baidu
-        start = time.perf_counter()
-        baidu_text = extract_text_with_baidu(pdf_bytes)
-        timings["baidu_ms"] = round((time.perf_counter() - start) * 1000, 1)
+
+        stage_timeout = float(_os.getenv("OCR_STAGE_TIMEOUT_S", "60"))
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(extract_text_with_baidu, pdf_bytes)
+            try:
+                start = time.perf_counter()
+                baidu_text = future.result(timeout=stage_timeout)
+                timings["baidu_ms"] = round((time.perf_counter() - start) * 1000, 1)
+            except concurrent.futures.TimeoutError:
+                future.cancel()
+                timings["baidu_timeout_s"] = stage_timeout
+                print(f"Baidu OCR stage timed out after {stage_timeout}s, falling through.")
+                baidu_text = ""
         if len(baidu_text.strip()) >= 100:
             return (baidu_text, {"stage": "baidu_vlm", "timings_ms": timings,
                                  "chars": len(baidu_text.strip())})
