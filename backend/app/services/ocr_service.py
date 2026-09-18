@@ -326,36 +326,140 @@ BILLER_PATTERNS = {
 }
 
 
+# ── DOCUMENT METADATA ────────────────────────────────────────────
+
+def _normalise_pdf_date(value: Optional[str]) -> Optional[str]:
+    """Normalises PDF date strings like D:20260601120000+05'30' to ISO-ish form."""
+    if not value:
+        return None
+    s = str(value).strip()
+    m = re.match(
+        r"D:(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?(.*)?", s
+    )
+    if not m:
+        return s
+    year, mon, day, hh, mm, ss, tz = m.groups()
+    out = f"{year}-{mon}-{day}"
+    if hh:
+        out += f"T{hh}:{mm or '00'}:{ss or '00'}{tz or ''}"
+    return out
+
+
+def get_pdf_metadata(pdf_bytes: bytes, filename: Optional[str] = None) -> Dict:
+    """Pulls document metadata from the uploaded bill.
+
+    Always returns file basics (size, sha256). PDF-level details
+    (pages, title/author/creator/producer/dates) are best-effort —
+    missing when deps are absent or the file is malformed.
+    """
+    import hashlib
+
+    meta: Dict = {
+        "filename": filename,
+        "file_size_bytes": len(pdf_bytes or b""),
+        "sha256": hashlib.sha256(pdf_bytes or b"").hexdigest(),
+        "page_count": None,
+        "pdf_info": {},
+    }
+    if not pdf_bytes:
+        return meta
+
+    # Fast path: PyMuPDF gives pages + info dict in one open.
+    try:
+        import fitz  # type: ignore
+        with fitz.open(stream=pdf_bytes, filetype="pdf") as doc:
+            meta["page_count"] = doc.page_count
+            info = doc.metadata or {}
+            for key in ("title", "author", "subject", "creator", "producer",
+                        "creationDate", "modDate"):
+                if info.get(key):
+                    val = info[key]
+                    if key in ("creationDate", "modDate"):
+                        val = _normalise_pdf_date(val) or val
+                    meta["pdf_info"][key] = val
+        return meta
+    except Exception:
+        pass
+
+    # Fallback: pdfminer for page count + document info.
+    if PDFMINER_AVAILABLE:
+        try:
+            from pdfminer.pdfparser import PDFParser
+            from pdfminer.pdfdocument import PDFDocument
+            from pdfminer.pdfpage import PDFPage
+
+            parser = PDFParser(io.BytesIO(pdf_bytes))
+            document = PDFDocument(parser)
+            try:
+                meta["page_count"] = sum(1 for _ in PDFPage.create_pages(document))
+            except Exception:
+                pass
+            for info_dict in (document.info or []):
+                for raw_key, raw_val in info_dict.items():
+                    key = raw_key.decode("utf-8", "ignore") if isinstance(raw_key, bytes) else str(raw_key)
+                    if isinstance(raw_val, bytes):
+                        try:
+                            raw_val = raw_val.decode("utf-8", "ignore")
+                        except Exception:
+                            raw_val = str(raw_val)
+                    else:
+                        raw_val = str(raw_val)
+                    short = key.strip("/").lower()
+                    if short in ("title", "author", "subject", "creator", "producer",
+                                 "creationdate", "moddate"):
+                        if short in ("creationdate", "moddate"):
+                            raw_val = _normalise_pdf_date(raw_val) or raw_val
+                        meta["pdf_info"][key.strip("/")] = raw_val
+        except Exception as e:
+            print("PDF metadata extraction failed:", e)
+
+    return meta
+
+
 # ── TEXT EXTRACTION ──────────────────────────────────────────────────
 
-def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+def extract_text_with_provenance(pdf_bytes: bytes) -> tuple[str, Dict]:
     """
-    Three-stage text extraction:
+    Three-stage text extraction with provenance tracking:
     Stage 1: pdfminer for digital PDFs (instant, exact).
     Stage 2: Baidu Unlimited-OCR VLM for scanned pages (accurate, slow on CPU).
     Stage 3: Tesseract fallback for scanned PDFs.
+
+    Returns (text, provenance) where provenance holds the winning stage,
+    per-stage timings in ms, and extracted character count.
     """
+    import time
 
     text = ""
+    stage = "none"
+    timings: Dict[str, float] = {}
 
     if PDFMINER_AVAILABLE:
         try:
+            start = time.perf_counter()
             text = pdfminer_extract(io.BytesIO(pdf_bytes), laparams=LAParams())
+            timings["pdfminer_ms"] = round((time.perf_counter() - start) * 1000, 1)
         except Exception as e:
             print("pdfminer extraction failed:", e)
 
     if len(text.strip()) >= 100:
-        return text or ""
+        stage = "pdfminer"
+        return (text or "", {"stage": stage, "timings_ms": timings,
+                             "chars": len((text or "").strip())})
 
     # Stage 2: Baidu VLM (no-op '' when deps/model unavailable)
     try:
         from app.services.baidu_ocr_service import extract_text_with_baidu
+        start = time.perf_counter()
         baidu_text = extract_text_with_baidu(pdf_bytes)
+        timings["baidu_ms"] = round((time.perf_counter() - start) * 1000, 1)
         if len(baidu_text.strip()) >= 100:
-            return baidu_text
+            return (baidu_text, {"stage": "baidu_vlm", "timings_ms": timings,
+                                 "chars": len(baidu_text.strip())})
         # Even a short Baidu result beats nothing; keep as candidate.
         if baidu_text.strip():
             text = baidu_text
+            stage = "baidu_vlm"
     except Exception as e:
         print("Baidu OCR stage failed:", e)
 
@@ -365,6 +469,7 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
             import tempfile
             import os
 
+            start = time.perf_counter()
             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
                 f.write(pdf_bytes)
                 tmp_path = f.name
@@ -383,10 +488,22 @@ def extract_text_from_pdf(pdf_bytes: bytes) -> str:
                 text = pytesseract.image_to_string(img)
                 os.unlink(img_path)
 
+            timings["tesseract_ms"] = round((time.perf_counter() - start) * 1000, 1)
+            stage = "tesseract"
         except Exception as e:
             print("Tesseract OCR fallback failed:", e)
 
-    return text or ""
+    text = text or ""
+    if stage == "none" and text.strip():
+        stage = "tesseract"
+    return (text, {"stage": stage, "timings_ms": timings,
+                   "chars": len(text.strip())})
+
+
+def extract_text_from_pdf(pdf_bytes: bytes) -> str:
+    """Backwards-compatible wrapper — returns text only."""
+    text, _ = extract_text_with_provenance(pdf_bytes)
+    return text
 
 
 def clean_text(text: str) -> str:
@@ -1047,13 +1164,15 @@ def _parse_date(date_str: str):
 
 # ── MAIN PIPELINE ────────────────────────────────────────────────────
 
-def process_bill(pdf_bytes: bytes) -> Dict:
+def process_bill(pdf_bytes: bytes, filename: Optional[str] = None) -> Dict:
     """
     Full OCR pipeline:
-    extract text → clean text → detect biller → extract fields → validate.
+    metadata → extract text → clean text → detect biller → extract fields → validate.
     """
 
-    raw_text = extract_text_from_pdf(pdf_bytes)
+    metadata = get_pdf_metadata(pdf_bytes, filename=filename)
+    raw_text, provenance = extract_text_with_provenance(pdf_bytes)
+    metadata["extraction"] = provenance
     cleaned_text = clean_text(raw_text)
 
     biller = detect_biller(cleaned_text) or "Unknown"
@@ -1083,4 +1202,5 @@ def process_bill(pdf_bytes: bytes) -> Dict:
         "overall_confidence": confidence,
         "payment_on_time": on_time,
         "status": status,
+        "metadata": metadata,
     }

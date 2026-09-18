@@ -127,7 +127,8 @@ async def upload_utility_bill(
     user: dict = Depends(get_current_user),
 ):
     user_id = user["sub"]
-    filename = (file.filename or "").lower()
+    original_filename = file.filename or "bill.pdf"
+    filename = original_filename.lower()
 
     if not filename.endswith(".pdf"):
         raise HTTPException(status_code=422, detail="Only PDF files are accepted")
@@ -166,10 +167,16 @@ async def upload_utility_bill(
         logger.warning("Storage upload failed: %s", e)
 
     try:
-        ocr_result = process_bill(pdf_bytes) or {}
+        ocr_result = process_bill(pdf_bytes, filename=original_filename) or {}
     except Exception as e:
         logger.exception("OCR processing failed")
         raise HTTPException(status_code=500, detail="OCR processing failed")
+
+    metadata = ocr_result.get("metadata") or {}
+    # Enrich with request-level facts the OCR layer can't see.
+    metadata.setdefault("filename", original_filename)
+    metadata["content_type"] = file.content_type
+    metadata["biller_detected"] = None  # filled below
 
     fields = normalize_ocr_fields(ocr_result.get("fields", []))
     raw_text = extract_raw_text(ocr_result)
@@ -203,7 +210,9 @@ async def upload_utility_bill(
     else:
         review_status = "needs_staff_review"
 
-    db.table("pending_bills").upsert({
+    metadata["biller_detected"] = biller_detected
+
+    pending_row = {
         "id": bill_id,
         "user_id": user_id,
         "storage_path": storage_path,
@@ -214,7 +223,13 @@ async def upload_utility_bill(
         "payment_on_time": ocr_result.get("payment_on_time"),
         "status": review_status,
         "created_at": datetime.now(timezone.utc).isoformat(),
-    }).execute()
+    }
+    # metadata column exists after the schema migration; older DBs lack it.
+    try:
+        db.table("pending_bills").upsert({**pending_row, "metadata": metadata}).execute()
+    except Exception as e:
+        logger.warning("pending_bills metadata column missing, storing without it: %s", e)
+        db.table("pending_bills").upsert(pending_row).execute()
 
     # PROFILE VERIFICATION SCORE UPDATE — tolerant of older DBs missing the
     # utility-bill columns (see supabase_schema.sql migration at bottom).
@@ -276,6 +291,7 @@ async def upload_utility_bill(
         "payment_on_time": ocr_result.get("payment_on_time"),
         "status": review_status,
         "file_sha256": file_sha256,
+        "metadata": metadata,
         "raw_text": raw_text_out,
         "has_raw_text": bool(raw_text),
         "bill_name": bill_name,

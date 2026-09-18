@@ -69,6 +69,7 @@ class OCRResultResponse(BaseModel):
     overall_confidence: float
     identity_match_score: float
     status: str  # clean | low_confidence | needs_review
+    metadata: Optional[dict] = None  # file + PDF + extraction provenance
 
 
 class OCRReviewRequest(BaseModel):
