@@ -31,7 +31,9 @@ settings = get_settings()
 _HTTP_TIMEOUT = httpx.Timeout(15.0, connect=10.0)
 
 # Read-only scopes for income verification — never request payout scopes.
-SCOPES = "openid profile email account:balances:read account:transactions:read"
+# Override via PAYONEER_SCOPES env to match the portal's Scopes table.
+def _scopes() -> str:
+    return settings.PAYONEER_SCOPES
 
 
 def is_configured() -> bool:
@@ -43,7 +45,7 @@ def get_payoneer_auth_url(state: str) -> str:
     params = urlencode({
         "client_id": settings.PAYONEER_CLIENT_ID,
         "response_type": "code",
-        "scope": SCOPES,
+        "scope": _scopes(),
         "redirect_uri": settings.PAYONEER_REDIRECT_URI,
         "state": state,
     })
@@ -58,7 +60,7 @@ async def exchange_payoneer_code(code: str) -> Optional[Dict]:
 
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         resp = await client.post(
-            f"{settings.PAYONEER_BASE_URL}/api/v2/oauth2/token",
+            f"{settings.PAYONEER_BASE_URL}{settings.PAYONEER_TOKEN_PATH}",
             headers={
                 "Authorization": f"Basic {credentials}",
                 "Content-Type": "application/x-www-form-urlencoded",
@@ -81,7 +83,7 @@ async def fetch_payoneer_profile(access_token: str) -> Optional[Dict]:
     """Fetch account-holder profile (name/email) from Payoneer."""
     async with httpx.AsyncClient(timeout=_HTTP_TIMEOUT) as client:
         resp = await client.get(
-            f"{settings.PAYONEER_BASE_URL}/api/v2/account/details",
+            f"{settings.PAYONEER_BASE_URL}{settings.PAYONEER_ACCOUNT_PATH}",
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
@@ -112,7 +114,7 @@ async def fetch_payoneer_transactions(
         page = 1
         while True:
             resp = await client.get(
-                f"{settings.PAYONEER_BASE_URL}/api/v2/account/transactions",
+                f"{settings.PAYONEER_BASE_URL}{settings.PAYONEER_TX_PATH}",
                 headers={"Authorization": f"Bearer {access_token}"},
                 params={
                     "accountId": account_id,

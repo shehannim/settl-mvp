@@ -32,6 +32,12 @@ class Settings(BaseSettings):
     PAYONEER_REDIRECT_URI: str = "http://localhost:8000/api/connect/payoneer/callback"
     PAYONEER_BASE_URL: str = "https://api.sandbox.payoneer.com"
     PAYONEER_AUTH_URL: str = "https://login.sandbox.payoneer.com/api/v2/oauth2/authorize"
+    # Confirm against the portal's API reference for your program version and
+    # override via env if Payoneer assigned different paths/scopes.
+    PAYONEER_TOKEN_PATH: str = "/api/v2/oauth2/token"
+    PAYONEER_ACCOUNT_PATH: str = "/api/v2/account/details"
+    PAYONEER_TX_PATH: str = "/api/v2/account/transactions"
+    PAYONEER_SCOPES: str = "openid profile email account:balances:read account:transactions:read"
 
     # Stripe
     STRIPE_CLIENT_ID: str = ""
