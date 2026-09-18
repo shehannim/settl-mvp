@@ -97,4 +97,11 @@ async def ready():
     except Exception as e:
         checks["model"] = f"not_loaded: {str(e)[:120]}"
     ok = checks.get("database") == "ok" and checks.get("model") == "ok"
-    return {"ready": ok, "checks": checks}
+    import os as _os
+    return {
+        "ready": ok,
+        "checks": checks,
+        # Render injects RENDER_GIT_COMMIT on deploy — lets clients verify
+        # which backend revision is actually serving (e.g. metadata support).
+        "build": (_os.getenv("RENDER_GIT_COMMIT") or "local")[:12],
+    }
