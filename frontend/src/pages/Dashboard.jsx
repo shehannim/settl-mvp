@@ -220,6 +220,7 @@ export default function Dashboard({ token, userId, go }) {
   };
 
   const paypal = sources.find((s) => s.source === "paypal");
+  const payoneer = sources.find((s) => s.source === "payoneer");
 
   const handleSyncSource = async (sourceId) => {
     setSyncingId(sourceId);
@@ -525,6 +526,60 @@ export default function Dashboard({ token, userId, go }) {
                       title="Disconnect PayPal"
                     >
                       {disconnectingId === "paypal" ? (
+                        <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-0.5"></div>
+                      ) : (
+                        <Icons.Trash />
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Payoneer card */}
+              <div className="flex items-center justify-between p-4 bg-white rounded-2xl border border-slate-200 shadow-sm transition hover:border-slate-300 group">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-50 text-slate-700 rounded-xl flex items-center justify-center group-hover:bg-orange-50 group-hover:text-orange-600 transition-colors">
+                    <Icons.Wallet />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900 text-sm">
+                      Payoneer Integration
+                    </div>
+                    <div className="text-xs text-slate-500 mt-0.5">
+                      {payoneer
+                        ? `Active · ${payoneer.transaction_count || 0} transactions analyzed`
+                        : "Pending Authorization"}
+                    </div>
+                  </div>
+                </div>
+
+                {!payoneer ? (
+                  <button
+                    onClick={() => go && go("payoneer-connect")}
+                    className="px-5 py-2 bg-slate-900 text-white text-xs font-bold uppercase tracking-wider rounded-lg hover:bg-slate-800 transition shadow-sm"
+                  >
+                    Connect
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleSyncSource("payoneer")}
+                      disabled={syncingId === "payoneer"}
+                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-slate-600 hover:bg-slate-50 text-[10px] font-bold uppercase tracking-widest rounded-md transition-colors"
+                    >
+                      <div className={syncingId === "payoneer" ? "animate-spin text-blue-600" : ""}>
+                        <Icons.Refresh />
+                      </div>
+                      Sync
+                    </button>
+
+                    <button
+                      onClick={() => handleDisconnectSource("payoneer")}
+                      disabled={disconnectingId === "payoneer"}
+                      className="p-1.5 border border-transparent text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-100 rounded-md transition-colors"
+                      title="Disconnect Payoneer"
+                    >
+                      {disconnectingId === "payoneer" ? (
                         <div className="w-3 h-3 border-2 border-red-600 border-t-transparent rounded-full animate-spin mx-0.5"></div>
                       ) : (
                         <Icons.Trash />

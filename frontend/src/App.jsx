@@ -10,6 +10,8 @@ import Dashboard from "./pages/Dashboard.jsx";
 import BillUpload from "./pages/BillUpload.jsx";
 import PayPalConnect from "./pages/PayPalConnect.jsx";
 import PayPalCallback from "./pages/PayPalCallback.jsx";
+import PayoneerConnect from "./pages/PayoneerConnect.jsx";
+import PayoneerCallback from "./pages/PayoneerCallback.jsx";
 import PayPalDashboard from "./pages/PayPalDashboard.jsx";
 import PayPalSuccess from "./pages/PayPalSuccess.jsx";
 
@@ -187,6 +189,11 @@ export default function App() {
 
     if (search.includes("code=")) {
       setPage("paypal-callback");
+      return;
+    }
+
+    if (path.includes("/connect/payoneer/success")) {
+      setPage("paypal-success");
       return;
     }
 
@@ -593,6 +600,10 @@ export default function App() {
           <BillUpload token={token} go={go} />
         )}
         {page === "paypal-connect" && <PayPalConnect go={go} />}
+        {page === "payoneer-connect" && <PayoneerConnect go={go} />}
+        {page === "payoneer-callback" && (
+          <PayoneerCallback go={go} setUserId={setUserId} />
+        )}
         {page === "paypal-callback" && (
           <PayPalCallback go={go} setUserId={setUserId} />
         )}
