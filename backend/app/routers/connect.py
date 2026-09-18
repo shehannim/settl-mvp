@@ -9,9 +9,17 @@ from app.services.paypal_service import (
     fetch_paypal_transactions,
     fetch_paypal_profile
 )
+from app.services.payoneer_service import (
+    is_configured as is_payoneer_configured,
+    get_payoneer_auth_url,
+    exchange_payoneer_code,
+    fetch_payoneer_transactions,
+    fetch_payoneer_profile,
+)
 from app.services.normalisation_service import (
     get_usd_to_lkr_rate,
     build_monthly_income,
+    build_monthly_income_async,
     compute_income_features
 )
 from datetime import datetime, timezone
@@ -129,6 +137,104 @@ async def paypal_callback(code: str, state: str):
         raise
     except Exception as e:
         logger.exception("PayPal callback failed")
+        raise HTTPException(status_code=500, detail="Callback failed")
+
+
+# ── PAYONEER (same shape as PayPal; multi-currency via live FX) ──
+
+@router.get("/payoneer")
+async def connect_payoneer(user: dict = Depends(get_current_user)):
+    if not is_payoneer_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="PAYONEER_NOT_CONFIGURED: partner credentials missing. "
+                   "Upload a Payoneer statement instead.",
+        )
+    user_id = user["sub"]
+    state = create_oauth_state(user_id, purpose="payoneer_oauth")
+    return {"auth_url": get_payoneer_auth_url(state), "state": state}
+
+
+@router.get("/payoneer/callback")
+async def payoneer_callback(code: str, state: str):
+    # Purpose-bound state — a PayPal state is rejected here.
+    user_id = decode_oauth_state(state, purpose="payoneer_oauth")
+
+    try:
+        tokens = await exchange_payoneer_code(code)
+        if not tokens:
+            raise HTTPException(status_code=400, detail="Payoneer auth failed")
+
+        access_token = tokens.get("access_token")
+
+        profile = {}
+        try:
+            profile = await fetch_payoneer_profile(access_token) or {}
+        except Exception as e:
+            logger.warning("Payoneer profile fetch failed: %s", e)
+
+        transactions = []
+        try:
+            transactions = await fetch_payoneer_transactions(
+                access_token, account_id=(profile or {}).get("account_id", ""), months=24
+            )
+        except Exception as e:
+            logger.warning("Payoneer transaction fetch failed: %s", e)
+
+        usd_to_lkr = 305.0
+        monthly_income = []
+        income_features = {}
+        try:
+            usd_to_lkr = await get_usd_to_lkr_rate()
+            monthly_income = await build_monthly_income_async(transactions, usd_to_lkr)
+            income_features = compute_income_features(monthly_income)
+        except Exception as e:
+            logger.warning("Payoneer income processing failed: %s", e)
+
+        db = get_supabase_admin()
+        existing_sources = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
+        is_first_source = len(existing_sources.data) == 0
+
+        base_row = {
+            "user_id": user_id,
+            "source": "payoneer",
+            "account_name": (profile.get("name", "") if profile else ""),
+            "transaction_count": len(transactions),
+            "date_range_months": len(monthly_income),
+            "income_features": income_features,
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "access_token_hash": _hash_token(access_token) if access_token else "",
+        }
+        try:
+            db.table("connected_sources").upsert(
+                {**base_row, "is_primary": is_first_source},
+                on_conflict="user_id,source",
+            ).execute()
+        except Exception:
+            db.table("connected_sources").upsert(
+                base_row,
+                on_conflict="user_id,source",
+            ).execute()
+
+        sources = db.table("connected_sources")\
+            .select("source")\
+            .eq("user_id", user_id)\
+            .execute()
+
+        try:
+            db.table("users").update({
+                "connected_source_count": len(sources.data),
+                "digital_tenure_months": int(len(monthly_income) or 0),
+            }).eq("id", user_id).execute()
+        except Exception as e:
+            logger.warning("User stats update failed: %s", e)
+
+        return RedirectResponse(f"{settings.FRONTEND_URL}/connect/payoneer/success")
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("Payoneer callback failed")
         raise HTTPException(status_code=500, detail="Callback failed")
 
 

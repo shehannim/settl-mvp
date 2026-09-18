@@ -10,6 +10,21 @@ settings = get_settings()
 # Fallback LKR rate if API fails
 FALLBACK_USD_LKR = 305.0
 
+# Static USD fallbacks per currency when the FX API is unreachable.
+# (Approximate; live rates are always preferred.)
+FALLBACK_TO_USD = {
+    "USD": 1.0,
+    "EUR": 1.08,
+    "GBP": 1.27,
+    "AUD": 0.66,
+    "CAD": 0.74,
+    "SGD": 0.74,
+    "AED": 0.27,
+    "LKR": 1 / 305.0,
+}
+
+_fx_cache: Dict[str, float] = {}
+
 
 async def get_usd_to_lkr_rate() -> float:
     """Fetches current USD to LKR exchange rate."""
@@ -26,10 +41,37 @@ async def get_usd_to_lkr_rate() -> float:
     return FALLBACK_USD_LKR
 
 
+async def convert_to_usd(amount: float, currency: str) -> float:
+    """Converts any currency amount to USD (cached per currency)."""
+    currency = (currency or "USD").upper()
+    if currency == "USD":
+        return float(amount)
+    if currency in _fx_cache:
+        return float(amount) * _fx_cache[currency]
+    try:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(6.0, connect=4.0)) as client:
+            resp = await client.get(
+                f"https://v6.exchangerate-api.com/v6/{settings.EXCHANGE_RATE_API_KEY}"
+                f"/pair/{currency}/USD",
+                timeout=5.0,
+            )
+        if resp.status_code == 200:
+            rate = float(resp.json().get("conversion_rate", 0) or 0)
+            if rate > 0:
+                _fx_cache[currency] = rate
+                return float(amount) * rate
+    except Exception:
+        pass
+    return float(amount) * FALLBACK_TO_USD.get(currency, 1.0)
+
+
 def build_monthly_income(transactions: List[Dict], usd_to_lkr: float) -> pd.DataFrame:
     """
     Converts raw transactions into monthly LKR income totals.
     Only counts incoming payments (positive amounts).
+    Accepts PayPal-shape rows (amount_usd) and Payoneer-shape rows
+    (amount + currency, converted at the static fallback rate — use
+    build_monthly_income_async for live FX rates).
     """
     if not transactions:
         return pd.DataFrame(columns=["year_month", "income_lkr"])
@@ -37,6 +79,20 @@ def build_monthly_income(transactions: List[Dict], usd_to_lkr: float) -> pd.Data
     df = pd.DataFrame(transactions)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
     df = df.dropna(subset=["date"])
+
+    # Fill rows lacking a USD value (Payoneer native-currency rows) at the
+    # static fallback rate — the async variant uses live FX instead.
+    if "amount_usd" not in df.columns:
+        df["amount_usd"] = np.nan
+    else:
+        df["amount_usd"] = pd.to_numeric(df["amount_usd"], errors="coerce")
+    missing = df["amount_usd"].isna()
+    if missing.any():
+        df.loc[missing, "amount_usd"] = df[missing].apply(
+            lambda r: float(r.get("amount") or 0)
+            * FALLBACK_TO_USD.get(str(r.get("currency") or "USD").upper(), 1.0),
+            axis=1,
+        )
 
     # Only count income (positive, non-refund)
     df = df[df["amount_usd"] > 0]
@@ -50,6 +106,24 @@ def build_monthly_income(transactions: List[Dict], usd_to_lkr: float) -> pd.Data
     monthly["year_month"] = monthly["year_month"].astype(str)
 
     return monthly
+
+
+async def build_monthly_income_async(
+    transactions: List[Dict], usd_to_lkr: float
+) -> pd.DataFrame:
+    """Same as build_monthly_income but converts non-USD rows at live FX rates."""
+    if not transactions:
+        return pd.DataFrame(columns=["year_month", "income_lkr"])
+
+    enriched: List[Dict] = []
+    for tx in transactions:
+        tx = dict(tx)
+        if tx.get("amount_usd") is None:
+            tx["amount_usd"] = await convert_to_usd(
+                float(tx.get("amount") or 0), str(tx.get("currency") or "USD")
+            )
+        enriched.append(tx)
+    return build_monthly_income(enriched, usd_to_lkr)
 
 
 def compute_income_features(monthly: pd.DataFrame) -> Dict:

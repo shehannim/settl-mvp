@@ -54,20 +54,21 @@ def _oauth_secret() -> str:
     return settings.OAUTH_STATE_SECRET or settings.SECRET_KEY
 
 
-def create_oauth_state(user_id: str) -> str:
+def create_oauth_state(user_id: str, purpose: str = "paypal_oauth") -> str:
     """Stateless signed OAuth state — works across instances. No server store."""
     expire = datetime.now(timezone.utc) + timedelta(
         minutes=settings.OAUTH_STATE_EXPIRE_MINUTES
     )
     return jwt.encode(
-        {"sub": user_id, "exp": expire, "purpose": "paypal_oauth"},
+        {"sub": user_id, "exp": expire, "purpose": purpose},
         _oauth_secret(),
         algorithm=settings.ALGORITHM,
     )
 
 
-def decode_oauth_state(state: str) -> str:
-    """Returns user_id or raises 401. No fallback to another user."""
+def decode_oauth_state(state: str, purpose: str = "paypal_oauth") -> str:
+    """Returns user_id or raises 401. Purpose-bound: a PayPal state can never
+    be replayed on the Payoneer callback and vice versa."""
     try:
         payload = jwt.decode(state, _oauth_secret(), algorithms=[settings.ALGORITHM])
     except JWTError:
@@ -76,7 +77,7 @@ def decode_oauth_state(state: str) -> str:
             status_code=_status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired OAuth state",
         )
-    if payload.get("purpose") != "paypal_oauth" or not payload.get("sub"):
+    if payload.get("purpose") != purpose or not payload.get("sub"):
         from fastapi import HTTPException, status as _status
         raise HTTPException(
             status_code=_status.HTTP_401_UNAUTHORIZED,

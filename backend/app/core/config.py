@@ -26,6 +26,13 @@ class Settings(BaseSettings):
     PAYPAL_REDIRECT_URI: str = "http://localhost:8000/api/connect/paypal/callback"
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"
 
+    # Payoneer (partner OAuth — credentials issued via developer.payoneer.com)
+    PAYONEER_CLIENT_ID: str = ""
+    PAYONEER_CLIENT_SECRET: str = ""
+    PAYONEER_REDIRECT_URI: str = "http://localhost:8000/api/connect/payoneer/callback"
+    PAYONEER_BASE_URL: str = "https://api.sandbox.payoneer.com"
+    PAYONEER_AUTH_URL: str = "https://login.sandbox.payoneer.com/api/v2/oauth2/authorize"
+
     # Stripe
     STRIPE_CLIENT_ID: str = ""
     STRIPE_SECRET_KEY: str = ""
