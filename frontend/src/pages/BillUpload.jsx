@@ -226,6 +226,7 @@ export default function BillUpload({ token }) {
 
   const selectedData = ocrResults[selectedPreview] || {};
   const extractedFields = normalizeOcrFields(selectedData?.fields || []);
+  const docMeta = selectedData?.metadata || {};
 
   const reviewStatus = selectedData?.status;
   const matchScore = selectedData?.identity_match_score;
@@ -473,6 +474,54 @@ export default function BillUpload({ token }) {
                     </div>
                   )}
                 </div>
+
+                {docMeta && Object.keys(docMeta).length > 0 && (
+                  <div className="mt-6">
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-3">
+                      Document Metadata
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {[
+                        ["File", docMeta.filename],
+                        [
+                          "Size",
+                          docMeta.file_size_bytes !== undefined
+                            ? `${(docMeta.file_size_bytes / 1024).toFixed(1)} KB`
+                            : undefined,
+                        ],
+                        ["Pages", docMeta.page_count ?? "Unknown"],
+                        [
+                          "Extraction",
+                          docMeta.extraction?.stage
+                            ? `${docMeta.extraction.stage}${
+                                docMeta.extraction?.chars
+                                  ? ` · ${docMeta.extraction.chars} chars`
+                                  : ""
+                              }`
+                            : undefined,
+                        ],
+                        ["Producer", docMeta.pdf_info?.producer],
+                        ["Creator", docMeta.pdf_info?.creator],
+                        ["Created", docMeta.pdf_info?.creationDate],
+                        ["Modified", docMeta.pdf_info?.modDate],
+                      ]
+                        .filter(([, v]) => v !== undefined && v !== null && v !== "")
+                        .map(([label, value], i) => (
+                          <div
+                            key={i}
+                            className="p-3.5 bg-slate-50/70 border border-slate-100 rounded-xl shadow-sm flex flex-col justify-center"
+                          >
+                            <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-1">
+                              {label}
+                            </div>
+                            <div className="text-sm font-bold text-slate-800 truncate">
+                              {String(value)}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
