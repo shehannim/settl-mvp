@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+
+<html class="h-full bg-slate-100 antialiased" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Settl — Alternative Credit Scoring for Sri Lankan Gig Workers | Design System &amp; Prototype</title>
+<!-- Tailwind CSS v3 with Plugins -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Plus Jakarta Sans & Space Mono / Geist Mono equivalent -->
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;family=Space+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            settl: {
+              50: '#f0f6fe',
+              100: '#dbe8fc',
+              200: '#bfdafb',
+              500: '#1a73e8',
+              600: '#004FC5', // Primary brand color
+              700: '#003ea0',
+              800: '#003380',
+              900: '#002660',
+            }
+          },
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            mono: ['"Space Mono"', 'monospace']
+          },
+          boxShadow: {
+            'card-subtle': '0 8px 30px rgba(0, 0, 0, 0.05)',
+            'phone-glow': '0 25px 60px -15px rgba(0, 79, 197, 0.15)',
+            'glass': '0 8px 32px 0 rgba(0, 79, 197, 0.08)'
+          }
+        }
+      }
+    }
+  </script>
+<!-- BEGIN: Custom Brand Styles -->
+<style data-purpose="typography-and-effects">
+    body {
+      font-family: 'Plus Jakarta Sans', sans-serif;
+    }
+    .font-mono-num {
+      font-family: 'Space Mono', monospace;
+      letter-spacing: -0.05em;
+    }
+    .mesh-gradient-settl {
+      background: radial-gradient(at 10% 10%, #2563eb 0px, transparent 50%),
+                  radial-gradient(at 90% 0%, #004FC5 0px, transparent 50%),
+                  radial-gradient(at 30% 80%, #1e40af 0px, transparent 50%),
+                  radial-gradient(at 80% 95%, #3b82f6 0px, transparent 55%),
+                  #003893;
+    }
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.16);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+    }
+    .custom-scrollbar::-webkit-scrollbar {
+      height: 8px;
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: #f1f5f9;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+<!-- END: Custom Brand Styles -->
+</head>
+<body class="min-h-full flex flex-col text-slate-800 bg-[#F8FAFC]">
+<!-- BEGIN: MainHeader -->
+<header class="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200 shadow-sm" data-purpose="primary-header">
+<div class="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 h-18 py-3.5 flex flex-wrap items-center justify-between gap-4">
+<!-- Brand & Badges -->
+<div class="flex items-center space-x-3">
+<!-- Settl Brand Wordmark Logo as provided -->
+<div class="h-9 flex items-center">
+<svg class="h-9 w-auto" fill="none" viewbox="0 0 160 48" xmlns="http://www.w3.org/2000/svg">
+<rect fill="#004FC5" height="36" rx="10" width="36" x="2" y="6"></rect>
+<path d="M14 26C15.5 28.5 18 30 21 30C25 30 27 27.5 27 25C27 20 14 22 14 16C14 12.5 17 10 21 10C24 10 26.5 11.5 27.8 13.5" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+<path d="M22 34V36" stroke="#FFFFFF" stroke-linecap="round" stroke-width="2.5"></path>
+<path d="M20 8V6" stroke="#FFFFFF" stroke-linecap="round" stroke-width="2.5"></path>
+<text fill="#0F172A" font-family="Plus Jakarta Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5px" x="48" y="32">Settl</text>
+<circle cx="106" cy="30" fill="#004FC5" r="3"></circle>
+</svg>
+</div>
+<div class="hidden xl:flex items-center gap-2 pl-3 border-l border-slate-200 text-xs">
+<span class="inline-flex items-center px-2.5 py-0.5 rounded-full font-medium bg-blue-50 text-settl-700 border border-blue-200/60">
+            Alternative Credit for Gig Workers &amp; Freelancers
+          </span>
+<span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full font-semibold bg-amber-50 text-amber-900 border border-amber-200/70">
+<span>🇱🇰</span> Sri Lanka Focus
+          </span>
+</div>
+</div>
+<!-- Navigation Tabs -->
+<nav class="flex items-center p-1 bg-slate-100/90 rounded-xl border border-slate-200/80" data-purpose="view-switcher">
+<button class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-200 bg-white text-settl-600 shadow-sm" id="tab-btn-mobile" onclick="switchView('mobile')">
+<span>📱</span>
+<span>Complete Mobile Flow <span class="text-xs py-0.5 px-1.5 rounded bg-blue-100/70 ml-1 text-settl-700">5 Screens</span></span>
+</button>
+<button class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900" id="tab-btn-desktop" onclick="switchView('desktop')">
+<span>💻</span>
+<span>Desktop Adaptations <span class="text-xs py-0.5 px-1.5 rounded bg-slate-200/70 ml-1 text-slate-700">1 &amp; 3</span></span>
+</button>
+<button class="tab-button flex items-center gap-2 px-3.5 py-1.5 rounded-lg text-xs md:text-sm font-semibold transition-all duration-200 text-slate-600 hover:text-slate-900" id="tab-btn-interactive" onclick="switchView('interactive')">
+<span>⚡</span>
+<span>Interactive Simulator</span>
+</button>
+</nav>
+</div>
+</header>
+<!-- END: MainHeader -->
+<!-- BEGIN: MainContent -->
+<main class="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+<!-- ================================================================= -->
+<!-- VIEW 1: COMPLETE MOBILE FLOW (5 SCREENS SIDE BY SIDE) -->
+<!-- ================================================================= -->
+<section class="space-y-6 block" data-purpose="mobile-flow-overview" id="view-mobile">
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-2 border-b border-slate-200 pb-4">
+<div>
+<h1 class="text-2xl font-bold tracking-tight text-slate-900">Mobile Onboarding Flow</h1>
+<p class="text-sm text-slate-500">Full 5-step journey built for seamless conversion on budget smartphones across Colombo, Kandy, Galle, and Jaffna.</p>
+</div>
+<div class="text-xs text-slate-500 flex items-center gap-3">
+<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span> 99.4% Lightweight assets</span>
+<span class="flex items-center gap-1.5"><span class="w-2.5 h-2.5 rounded-full bg-settl-600"></span> Primary #004FC5</span>
+</div>
+</div>
+<!-- Horizontal Scrollable Container for 5 Phone Frames -->
+<div class="overflow-x-auto custom-scrollbar pb-8 pt-2">
+<div class="flex gap-8 min-w-[1600px] justify-start px-2">
+<!-- PHONE 1: LOGIN / SIGNUP -->
+<div class="w-[320px] flex-shrink-0 flex flex-col items-center" data-purpose="screen-1-mobile">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Screen 1 · Authentication</span>
+<!-- Mobile Frame -->
+<div class="w-full bg-white rounded-[38px] border-[6px] border-slate-900 shadow-phone-glow overflow-hidden flex flex-col min-h-[660px] relative">
+<!-- Notch Bar -->
+<div class="bg-white pt-2.5 px-6 pb-1 flex justify-between items-center text-[10px] font-semibold text-slate-800 select-none">
+<span>09:41</span>
+<div class="w-16 h-3.5 bg-slate-900 rounded-full mx-auto"></div>
+<div class="flex items-center gap-1">
+<span>5G</span>
+<svg class="w-3.5 h-3.5 inline" fill="currentColor" viewbox="0 0 24 24"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9-4.03-9-9-9zm0 16c-3.86 0-7-3.14-7-7s3.14-7 7-7 7 3.14 7 7-3.14 7-7 7z"></path></svg>
+</div>
+</div>
+<!-- Screen Body -->
+<div class="p-5 flex-1 flex flex-col justify-between">
+<div>
+<!-- Logo Center -->
+<div class="pt-4 pb-3 flex flex-col items-center text-center">
+<div class="h-10 mb-2">
+<svg class="h-10 w-auto" fill="none" viewbox="0 0 160 48" xmlns="http://www.w3.org/2000/svg">
+<rect fill="#004FC5" height="36" rx="10" width="36" x="2" y="6"></rect>
+<path d="M14 26C15.5 28.5 18 30 21 30C25 30 27 27.5 27 25C27 20 14 22 14 16C14 12.5 17 10 21 10C24 10 26.5 11.5 27.8 13.5" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path>
+<path d="M22 34V36" stroke="#FFFFFF" stroke-linecap="round" stroke-width="2.5"></path>
+<path d="M20 8V6" stroke="#FFFFFF" stroke-linecap="round" stroke-width="2.5"></path>
+<text fill="#0F172A" font-family="Plus Jakarta Sans, sans-serif" font-size="24" font-weight="700" letter-spacing="-0.5px" x="48" y="32">Settl</text>
+<circle cx="106" cy="30" fill="#004FC5" r="3"></circle>
+</svg>
+</div>
+<p class="text-xs font-semibold text-slate-500">Your work. Your credit profile.</p>
+</div>
+<!-- Form Start -->
+<div class="mt-4 space-y-3">
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Work or Personal Email</label>
+<input class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-settl-600 focus:border-settl-600 bg-slate-50/50" placeholder="name@work.lk" type="email" value="arjun@freelance.lk"/>
+</div>
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-1.5">
+<span>Continue</span>
+<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<!-- Divider -->
+<div class="relative flex py-1.5 items-center">
+<div class="flex-grow border-t border-slate-200"></div>
+<span class="flex-shrink mx-2 text-[10px] text-slate-400 font-medium uppercase">or</span>
+<div class="flex-grow border-t border-slate-200"></div>
+</div>
+<!-- Social Buttons -->
+<button class="w-full flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 py-2.5 px-3 rounded-xl text-xs font-medium text-slate-700 transition">
+<svg class="w-4 h-4" viewbox="0 0 24 24">
+<path d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.4 8.8 5 12 5z" fill="#EA4335"></path>
+<path d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z" fill="#4285F4"></path>
+<path d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.7s.1-2 .4-2.7L1.6 6.4C.6 8.3 0 10.5 0 12s.6 3.7 1.6 5.6l3.7-2.9z" fill="#FBBC05"></path>
+<path d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.2 0-5.8-2.4-6.7-5.3L1.6 16c1.9 3.8 5.8 7 10.4 7z" fill="#34A853"></path>
+</svg>
+                      Continue with Google
+                    </button>
+<button class="w-full flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 py-2.5 px-3 rounded-xl text-xs font-medium text-slate-700 transition">
+<svg class="w-4 h-4 text-black fill-current" viewbox="0 0 24 24">
+<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.93-2.85-.9.04-1.99.6-2.63 1.35-.57.65-1.06 1.72-.92 2.74 1.01.08 2-.49 2.62-1.24z"></path>
+</svg>
+                      Continue with Apple
+                    </button>
+</div>
+</div>
+<!-- Footer details -->
+<div class="pt-4 border-t border-slate-100 text-center">
+<p class="text-[10px] text-slate-400 mb-2">By continuing, you agree to our <a class="underline text-slate-600" href="#">Terms</a> &amp; <a class="underline text-slate-600" href="#">Privacy Policy</a></p>
+<p class="text-xs text-settl-600 font-medium">New here? <span class="font-bold underline cursor-pointer">Create an account</span></p>
+</div>
+</div>
+</div>
+</div>
+<!-- PHONE 2: OTP VERIFICATION -->
+<div class="w-[320px] flex-shrink-0 flex flex-col items-center" data-purpose="screen-2-mobile">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Screen 2 · Verification</span>
+<div class="w-full bg-white rounded-[38px] border-[6px] border-slate-900 shadow-phone-glow overflow-hidden flex flex-col min-h-[660px] relative">
+<!-- Notch Bar -->
+<div class="bg-white pt-2.5 px-6 pb-1 flex justify-between items-center text-[10px] font-semibold text-slate-800 select-none">
+<span>09:42</span>
+<div class="w-16 h-3.5 bg-slate-900 rounded-full mx-auto"></div>
+<span>100%</span>
+</div>
+<div class="p-5 flex-1 flex flex-col justify-between">
+<div>
+<!-- Back arrow & step -->
+<div class="flex items-center justify-between py-2 text-slate-500">
+<button class="p-1 -ml-1 text-slate-700 hover:text-settl-600">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<span class="text-[11px] font-medium text-slate-400">Step 1 of 5</span>
+</div>
+<div class="mt-4">
+<div class="w-10 h-10 rounded-xl bg-blue-50 text-settl-600 flex items-center justify-center mb-3">
+<svg class="w-5 h-5" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h2 class="text-lg font-bold text-slate-900">Check your email</h2>
+<p class="text-xs text-slate-500 mt-1 leading-relaxed">
+                      We sent a 6-digit code to <span class="font-semibold text-slate-900">arjun@freelance.lk</span>
+</p>
+</div>
+<!-- 6 OTP Boxes with Geist/Space Mono -->
+<div class="mt-6 flex justify-between gap-1.5 font-mono-num">
+<div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50/30 flex items-center justify-center text-lg font-bold text-settl-700 shadow-sm">4</div>
+<div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50/30 flex items-center justify-center text-lg font-bold text-settl-700 shadow-sm">8</div>
+<div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50/30 flex items-center justify-center text-lg font-bold text-settl-700 shadow-sm">2</div>
+<div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-lg text-slate-400">·</div>
+<div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-lg text-slate-400">·</div>
+<div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-lg text-slate-400">·</div>
+</div>
+<div class="mt-5 text-center">
+<p class="text-[11px] text-slate-400">Didn't receive code? <span class="text-settl-600 font-semibold cursor-pointer">Resend code (0:45)</span></p>
+</div>
+</div>
+<div class="space-y-2 pt-4">
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md transition">
+                    Verify Code
+                  </button>
+<p class="text-center text-[10px] text-slate-400">Protected by 256-bit bank grade encryption</p>
+</div>
+</div>
+</div>
+</div>
+<!-- PHONE 3: PERSONAL DETAILS (STEP 1 OF 5) -->
+<div class="w-[320px] flex-shrink-0 flex flex-col items-center" data-purpose="screen-3-mobile">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Screen 3 · Step 1 Profile</span>
+<div class="w-full bg-white rounded-[38px] border-[6px] border-slate-900 shadow-phone-glow overflow-hidden flex flex-col min-h-[660px] relative">
+<!-- Notch Bar -->
+<div class="bg-white pt-2.5 px-6 pb-1 flex justify-between items-center text-[10px] font-semibold text-slate-800 select-none">
+<span>09:43</span>
+<div class="w-16 h-3.5 bg-slate-900 rounded-full mx-auto"></div>
+<span>99%</span>
+</div>
+<!-- Segmented Progress Bar -->
+<div class="px-5 pt-2">
+<div class="flex items-center justify-between text-[11px] font-semibold text-slate-500 mb-1.5">
+<span class="text-settl-600">Step 1 of 5</span>
+<span>Personal Details</span>
+</div>
+<div class="grid grid-cols-5 gap-1.5 h-1.5 w-full">
+<div class="bg-settl-600 rounded-full"></div>
+<div class="bg-slate-200 rounded-full"></div>
+<div class="bg-slate-200 rounded-full"></div>
+<div class="bg-slate-200 rounded-full"></div>
+<div class="bg-slate-200 rounded-full"></div>
+</div>
+</div>
+<div class="p-5 flex-1 flex flex-col justify-between overflow-y-auto custom-scrollbar">
+<div>
+<h2 class="text-lg font-bold text-slate-900 mt-2">Let's get started</h2>
+<p class="text-xs text-slate-500 mt-0.5">Just the basics for now — you can fill in the rest later.</p>
+<div class="mt-4 space-y-3">
+<div class="grid grid-cols-2 gap-2">
+<div>
+<label class="block text-[11px] font-semibold text-slate-700 mb-1">First Name *</label>
+<input class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:ring-1 focus:ring-settl-600" type="text" value="Kasun"/>
+</div>
+<div>
+<label class="block text-[11px] font-semibold text-slate-700 mb-1">Last Name *</label>
+<input class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 focus:ring-1 focus:ring-settl-600" type="text" value="Perera"/>
+</div>
+</div>
+<!-- Accordion / Optional Info -->
+<div class="border border-slate-200 rounded-xl p-3 bg-slate-50/50">
+<div class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-2">
+<span>More details (optional)</span>
+<span class="text-[10px] text-settl-600">Expanded ▾</span>
+</div>
+<div class="space-y-2.5">
+<div>
+<label class="block text-[10px] text-slate-500 mb-0.5">Phone Number</label>
+<div class="flex">
+<span class="inline-flex items-center px-2.5 rounded-l-lg border border-r-0 border-slate-300 bg-slate-100 text-xs text-slate-700">
+                              🇱🇰 +94
+                            </span>
+<input class="w-full text-xs px-2.5 py-1.5 rounded-r-lg border border-slate-300 font-mono-num" type="text" value="77 412 8901"/>
+</div>
+</div>
+<div>
+<label class="block text-[10px] text-slate-500 mb-0.5">Residential Province / City</label>
+<select class="w-full text-xs px-2.5 py-1.5 rounded-lg border border-slate-300 bg-white">
+<option>Western — Colombo</option>
+<option>Central — Kandy</option>
+<option>Southern — Galle</option>
+</select>
+</div>
+<div>
+<label class="block text-[10px] text-slate-500 mb-1">Preferred Language</label>
+<div class="grid grid-cols-3 gap-1">
+<span class="text-[11px] text-center py-1 rounded bg-settl-600 text-white font-medium cursor-pointer shadow-sm">English</span>
+<span class="text-[11px] text-center py-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer">සිංහල</span>
+<span class="text-[11px] text-center py-1 rounded bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 cursor-pointer">தமிழ்</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-3 space-y-1.5">
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-2.5 rounded-xl shadow transition">
+                    Continue
+                  </button>
+<button class="w-full text-slate-400 hover:text-slate-600 font-medium text-[11px] py-1">
+                    Skip for now
+                  </button>
+</div>
+</div>
+</div>
+</div>
+<!-- PHONE 4: CONSENT & DATA SHARING (BOTTOM SHEET MODAL) -->
+<div class="w-[320px] flex-shrink-0 flex flex-col items-center" data-purpose="screen-4-mobile">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Screen 4 · Consent &amp; Privacy</span>
+<div class="w-full bg-slate-900 rounded-[38px] border-[6px] border-slate-900 shadow-phone-glow overflow-hidden flex flex-col min-h-[660px] relative">
+<!-- Dimmed Dashboard Screen Simulation in Background -->
+<div class="absolute inset-0 bg-slate-900/60 z-10 backdrop-blur-[2px]"></div>
+<div class="p-4 opacity-40 filter blur-[1px] pointer-events-none">
+<div class="h-6 w-24 bg-slate-300 rounded mb-4"></div>
+<div class="h-28 w-full bg-blue-100 rounded-2xl mb-4"></div>
+<div class="h-10 w-full bg-slate-200 rounded-xl mb-2"></div>
+<div class="h-10 w-full bg-slate-200 rounded-xl mb-2"></div>
+</div>
+<!-- Sliding Bottom Sheet Overlay -->
+<div class="absolute inset-x-0 bottom-0 z-20 bg-white rounded-t-[28px] p-5 shadow-2xl flex flex-col max-h-[92%] border-t border-slate-100">
+<!-- Grab handle -->
+<div class="w-10 h-1 bg-slate-300 rounded-full mx-auto mb-3"></div>
+<div class="flex items-center gap-2 mb-1">
+<div class="p-1.5 rounded-lg bg-blue-50 text-settl-600">
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</div>
+<h3 class="text-sm font-bold text-slate-900">Your Data, Your Choice</h3>
+</div>
+<p class="text-[11px] text-slate-500 mb-3">We adhere strictly to Sri Lanka's Personal Data Protection Act (PDPA).</p>
+<!-- 4 Value Props -->
+<div class="space-y-2 text-xs">
+<div class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-50">
+<span class="p-1 rounded bg-blue-100 text-settl-600 text-[10px] mt-0.5">🤝</span>
+<div>
+<span class="font-semibold text-slate-800 text-[11px]">Consent</span>
+<p class="text-[10px] text-slate-500">You decide exactly which gigs &amp; wallets to link.</p>
+</div>
+</div>
+<div class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-50">
+<span class="p-1 rounded bg-blue-100 text-settl-600 text-[10px] mt-0.5">🔍</span>
+<div>
+<span class="font-semibold text-slate-800 text-[11px]">Minimization</span>
+<p class="text-[10px] text-slate-500">Only verified earnings and activity metadata are read.</p>
+</div>
+</div>
+<div class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-50">
+<span class="p-1 rounded bg-blue-100 text-settl-600 text-[10px] mt-0.5">⚡</span>
+<div>
+<span class="font-semibold text-slate-800 text-[11px]">Control</span>
+<p class="text-[10px] text-slate-500">Revoke permissions instantly anytime with one tap.</p>
+</div>
+</div>
+<div class="flex items-start gap-2.5 p-2 rounded-lg bg-slate-50">
+<span class="p-1 rounded bg-blue-100 text-settl-600 text-[10px] mt-0.5">🛡️</span>
+<div>
+<span class="font-semibold text-slate-800 text-[11px]">Protection</span>
+<p class="text-[10px] text-slate-500">Bank-level 256-bit encryption in transit &amp; at rest.</p>
+</div>
+</div>
+</div>
+<!-- Highlight badge -->
+<div class="mt-3 p-2.5 bg-blue-50/80 rounded-xl border border-blue-100 text-[10px] text-settl-700 leading-snug">
+                  🔒 <strong>Lenders only ever see your Settl Score</strong> and confidence badge — never your bank statements or client chat.
+                </div>
+<div class="mt-3 space-y-2">
+<label class="flex items-center gap-2 cursor-pointer">
+<input checked="" class="w-3.5 h-3.5 rounded text-settl-600 focus:ring-settl-600 border-slate-300" type="checkbox"/>
+<span class="text-[10px] text-slate-600">I agree to the Terms of Service and Data Sharing Policy</span>
+</label>
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-2.5 rounded-xl shadow transition">
+                    Agree &amp; Continue
+                  </button>
+</div>
+</div>
+</div>
+</div>
+<!-- PHONE 5: ONBOARDING COMPLETE / SCORE READY TRANSITION -->
+<div class="w-[320px] flex-shrink-0 flex flex-col items-center" data-purpose="screen-5-mobile">
+<span class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">Screen 5 · Success &amp; Reveal</span>
+<div class="w-full bg-white rounded-[38px] border-[6px] border-slate-900 shadow-phone-glow overflow-hidden flex flex-col min-h-[660px] relative justify-between p-5">
+<!-- Notch Bar -->
+<div class="absolute top-0 inset-x-0 bg-white pt-2.5 px-6 pb-1 flex justify-between items-center text-[10px] font-semibold text-slate-800 select-none">
+<span>09:45</span>
+<div class="w-16 h-3.5 bg-slate-900 rounded-full mx-auto"></div>
+<span>98%</span>
+</div>
+<div class="pt-10 flex flex-col items-center text-center">
+<!-- Success Animated Check Badge -->
+<div class="relative my-4">
+<div class="w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center animate-pulse">
+<div class="w-14 h-14 bg-settl-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-blue-500/30">
+<svg class="w-8 h-8" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="3"></path></svg>
+</div>
+</div>
+<span class="absolute -top-1 -right-1 text-base">🇱🇰</span>
+</div>
+<h2 class="text-2xl font-black tracking-tight text-slate-900">You're in!</h2>
+<p class="text-xs text-slate-500 mt-1 max-w-[240px]">
+                  Your account is verified. Connect your primary income stream to formulate your alternative credit score.
+                </p>
+<!-- Settl Score Status Card -->
+<div class="w-full mt-6 p-4 rounded-2xl bg-gradient-to-br from-slate-900 to-settl-900 text-white text-left shadow-lg relative overflow-hidden">
+<div class="absolute -right-6 -bottom-6 w-24 h-24 rounded-full bg-blue-500/20 blur-xl"></div>
+<div class="flex justify-between items-center text-[10px] uppercase font-semibold tracking-wider text-blue-200">
+<span>Settl Alternative Score</span>
+<span class="bg-blue-500/30 px-2 py-0.5 rounded text-[9px] text-blue-100 font-mono-num">V1.2 LK</span>
+</div>
+<div class="mt-2 flex items-baseline gap-2">
+<span class="font-mono-num text-3xl font-bold tracking-tight text-white">READY</span>
+<span class="text-xs text-emerald-400 font-medium">● 0 / 3 Data Feeds</span>
+</div>
+<p class="text-[10px] text-slate-300 mt-1">Plug in your accounts to unlock credit limits up to LKR 750,000.</p>
+<div class="mt-3 pt-3 border-t border-white/10 flex flex-wrap gap-1.5">
+<span class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white">Upwork</span>
+<span class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white">Fiverr</span>
+<span class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white">PickMe Driver</span>
+<span class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white">Daraz Seller</span>
+<span class="text-[9px] bg-white/10 px-2 py-0.5 rounded text-white">Direct Remittance</span>
+</div>
+</div>
+</div>
+<!-- CTA Bottom -->
+<div class="pt-4">
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-lg flex items-center justify-center gap-2 group transition">
+<span>Continue to Dashboard</span>
+<svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M13 7l5 5m0 0l-5 5m5-5H6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<p class="text-center text-[10px] text-slate-400 mt-2">Zero impact on standard CRIB inquiries</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ================================================================= -->
+<!-- VIEW 2: TABLET & DESKTOP ADAPTATION (SCREENS 1 & 3) -->
+<!-- ================================================================= -->
+<section class="space-y-12 hidden" data-purpose="desktop-tablet-adaptations" id="view-desktop">
+<div class="border-b border-slate-200 pb-4">
+<h1 class="text-2xl font-bold tracking-tight text-slate-900">Desktop &amp; Tablet Adaptations</h1>
+<p class="text-sm text-slate-500">Expansive, dual-column view crafted with the blue gradient split-screen aesthetic from high-performing fintech web applications.</p>
+</div>
+<!-- DESKTOP SCREEN 1 ADAPTATION -->
+<div class="space-y-3">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 rounded bg-settl-100 text-settl-700 font-bold text-xs uppercase tracking-wider">Screen 1 Adaptation</span>
+<h2 class="text-lg font-bold text-slate-900">Desktop Split Sign-In / Registration</h2>
+</div>
+<span class="text-xs text-slate-400 font-mono">1280px+ Responsive Container</span>
+</div>
+<div class="bg-white rounded-3xl shadow-card-subtle border border-slate-200/90 overflow-hidden flex flex-col lg:flex-row min-h-[580px]">
+<!-- Left Hero Gradient Pane (Inspired by IMAGE_1) -->
+<div class="lg:w-1/2 mesh-gradient-settl p-8 lg:p-12 text-white flex flex-col justify-between relative overflow-hidden">
+<!-- Ambient Background Shapes -->
+<div class="absolute -top-24 -right-24 w-80 h-80 rounded-full bg-white/10 blur-3xl pointer-events-none"></div>
+<div class="absolute bottom-0 left-0 w-64 h-64 rounded-full bg-blue-400/20 blur-2xl pointer-events-none"></div>
+<div class="relative z-10">
+<!-- White monochrome badge logo -->
+<div class="flex items-center space-x-2 mb-8">
+<div class="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-md flex items-center justify-center font-bold text-white text-base">
+                  $
+                </div>
+<span class="font-bold text-xl tracking-tight text-white">Settl<span class="text-blue-300">.lk</span></span>
+</div>
+<div class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full glass-pill text-xs font-semibold text-blue-100 mb-4">
+<span>Join Us to Build</span>
+<span>⭐</span>
+</div>
+<h2 class="text-3xl lg:text-4xl font-extrabold tracking-tight leading-tight">
+                Start your journey with Sri Lanka's first gig-credit rating.
+              </h2>
+<p class="text-blue-100/90 text-sm mt-3 max-w-md leading-relaxed">
+                Traditional CRIB ignores your Upwork, Fiverr, or PickMe income. Settl connects verified gig revenues directly into formal loan qualifications.
+              </p>
+</div>
+<!-- Steps preview card widget inside gradient -->
+<div class="relative z-10 mt-8">
+<div class="grid grid-cols-3 gap-3">
+<div class="bg-white text-slate-900 p-3.5 rounded-2xl shadow-xl transform transition hover:-translate-y-0.5">
+<div class="w-6 h-6 rounded-full bg-settl-600 text-white text-xs font-bold flex items-center justify-center mb-2">1</div>
+<p class="text-xs font-bold leading-snug">Register account</p>
+<span class="text-[10px] text-slate-400">Takes 45 secs</span>
+</div>
+<div class="bg-white/10 backdrop-blur-md border border-white/20 text-white p-3.5 rounded-2xl">
+<div class="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-bold flex items-center justify-center mb-2">2</div>
+<p class="text-xs font-semibold leading-snug">Set up your profile</p>
+<span class="text-[10px] text-blue-200">National ID or Passport</span>
+</div>
+<div class="bg-white/10 backdrop-blur-md border border-white/20 text-white p-3.5 rounded-2xl">
+<div class="w-6 h-6 rounded-full bg-white/20 text-white text-xs font-bold flex items-center justify-center mb-2">3</div>
+<p class="text-xs font-semibold leading-snug">Verify gig identity</p>
+<span class="text-[10px] text-blue-200">Instant score unlock</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Right Authentication Form -->
+<div class="lg:w-1/2 p-8 lg:p-14 bg-white flex flex-col justify-center max-w-xl mx-auto w-full">
+<div class="text-left mb-6">
+<h2 class="text-2xl font-bold tracking-tight text-slate-900">Create your Settl Account</h2>
+<p class="text-xs text-slate-500 mt-1">Get verified in minutes. No paperwork or payslips required.</p>
+</div>
+<form class="space-y-4" onsubmit="event.preventDefault();">
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Work Email or Primary Email</label>
+<input class="w-full text-sm px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-settl-600 focus:border-settl-600" placeholder="e.g. arjun@work.lk" type="email" value="arjun@freelance.lk"/>
+</div>
+<div>
+<div class="flex justify-between items-center mb-1">
+<label class="block text-xs font-semibold text-slate-700">Choose Password</label>
+<span class="text-[11px] text-slate-400">At least 8 chars</span>
+</div>
+<input class="w-full text-sm px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-settl-600 focus:border-settl-600 font-mono" type="password" value="••••••••••••"/>
+</div>
+<button class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-sm py-3.5 rounded-xl shadow-md transition-all active:scale-[0.99] flex items-center justify-center gap-2">
+<span>Continue Setup</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M14 5l7 7m0 0l-7 7m7-7H3" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+<div class="relative flex py-2 items-center">
+<div class="flex-grow border-t border-slate-200"></div>
+<span class="flex-shrink mx-3 text-xs text-slate-400 font-medium uppercase">or continue with</span>
+<div class="flex-grow border-t border-slate-200"></div>
+</div>
+<div class="grid grid-cols-2 gap-3">
+<button class="flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 py-3 px-4 rounded-xl text-xs font-semibold text-slate-700 transition" type="button">
+<svg class="w-4 h-4" viewbox="0 0 24 24">
+<path d="M12 5c1.6 0 3 .6 4.1 1.6l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.9C6.2 7.4 8.8 5 12 5z" fill="#EA4335"></path>
+<path d="M23.5 12.3c0-.8-.1-1.7-.2-2.3H12v4.6h6.5c-.3 1.5-1.1 2.8-2.4 3.7l3.7 2.9c2.2-2 3.7-5 3.7-8.9z" fill="#4285F4"></path>
+<path d="M5.3 14.7c-.2-.7-.4-1.5-.4-2.7s.1-2 .4-2.7L1.6 6.4C.6 8.3 0 10.5 0 12s.6 3.7 1.6 5.6l3.7-2.9z" fill="#FBBC05"></path>
+<path d="M12 23c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.2 0-5.8-2.4-6.7-5.3L1.6 16c1.9 3.8 5.8 7 10.4 7z" fill="#34A853"></path>
+</svg>
+                  Google
+                </button>
+<button class="flex items-center justify-center gap-2 border border-slate-200 hover:bg-slate-50 py-3 px-4 rounded-xl text-xs font-semibold text-slate-700 transition" type="button">
+<svg class="w-4 h-4 text-black fill-current" viewbox="0 0 24 24">
+<path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M15.97 6.37c.62-.75 1.04-1.8 0.93-2.85-.9.04-1.99.6-2.63 1.35-.57.65-1.06 1.72-.92 2.74 1.01.08 2-.49 2.62-1.24z"></path>
+</svg>
+                  Apple
+                </button>
+</div>
+<div class="pt-4 text-center text-xs text-slate-500">
+                Already registered with Settl? <a class="text-settl-600 font-semibold hover:underline" href="#">Log in here</a>
+</div>
+</form>
+</div>
+</div>
+</div>
+<!-- DESKTOP SCREEN 3 ADAPTATION -->
+<div class="space-y-3 pt-6">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<span class="px-2.5 py-1 rounded bg-settl-100 text-settl-700 font-bold text-xs uppercase tracking-wider">Screen 3 Adaptation</span>
+<h2 class="text-lg font-bold text-slate-900">Desktop Guided Onboarding (Step 1: Personal Details)</h2>
+</div>
+<span class="text-xs text-slate-400 font-mono">Progress Hub Layout</span>
+</div>
+<div class="bg-white rounded-3xl shadow-card-subtle border border-slate-200/90 overflow-hidden grid grid-cols-1 lg:grid-cols-12 min-h-[580px]">
+<!-- Stepper Navigation Sidebar (Cols 4) -->
+<div class="lg:col-span-4 bg-slate-50 border-r border-slate-200 p-8 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-6">
+<span class="w-2.5 h-2.5 rounded-full bg-settl-600"></span>
+<span class="text-xs font-bold uppercase tracking-wider text-slate-400">Onboarding Roadmap</span>
+</div>
+<!-- Stepper List -->
+<div class="space-y-4 relative">
+<!-- Step 1 (Active) -->
+<div class="flex items-start gap-3 relative">
+<div class="w-8 h-8 rounded-full bg-settl-600 text-white font-bold text-xs flex items-center justify-center ring-4 ring-blue-100 z-10">1</div>
+<div>
+<p class="text-sm font-bold text-settl-700">Personal Details</p>
+<p class="text-xs text-slate-500">Legal name, contacts, language</p>
+</div>
+</div>
+<!-- Step 2 -->
+<div class="flex items-start gap-3 relative opacity-60">
+<div class="w-8 h-8 rounded-full bg-white border-2 border-slate-300 text-slate-500 font-semibold text-xs flex items-center justify-center z-10">2</div>
+<div>
+<p class="text-sm font-semibold text-slate-700">Income Verification</p>
+<p class="text-xs text-slate-400">Direct deposits or local banks</p>
+</div>
+</div>
+<!-- Step 3 -->
+<div class="flex items-start gap-3 relative opacity-60">
+<div class="w-8 h-8 rounded-full bg-white border-2 border-slate-300 text-slate-500 font-semibold text-xs flex items-center justify-center z-10">3</div>
+<div>
+<p class="text-sm font-semibold text-slate-700">Platform Connections</p>
+<p class="text-xs text-slate-400">Upwork, Fiverr, PickMe, etc.</p>
+</div>
+</div>
+<!-- Step 4 -->
+<div class="flex items-start gap-3 relative opacity-60">
+<div class="w-8 h-8 rounded-full bg-white border-2 border-slate-300 text-slate-500 font-semibold text-xs flex items-center justify-center z-10">4</div>
+<div>
+<p class="text-sm font-semibold text-slate-700">Identity &amp; CRIB Shield</p>
+<p class="text-xs text-slate-400">NIC (National Identity Card)</p>
+</div>
+</div>
+<!-- Step 5 -->
+<div class="flex items-start gap-3 relative opacity-60">
+<div class="w-8 h-8 rounded-full bg-white border-2 border-slate-300 text-slate-500 font-semibold text-xs flex items-center justify-center z-10">5</div>
+<div>
+<p class="text-sm font-semibold text-slate-700">Score Reveal &amp; Pre-Approval</p>
+<p class="text-xs text-slate-400">Instant microcredit access</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Sri Lanka Regulatory Compliance Box -->
+<div class="p-3.5 rounded-2xl bg-white border border-slate-200 text-xs text-slate-600 mt-8">
+<div class="flex items-center gap-2 font-bold text-slate-800 mb-1">
+<span>🇱🇰</span> Data Privacy Compliant
+              </div>
+<p class="text-[11px] text-slate-500">Registered with the Central Bank of Sri Lanka FinTech Regulatory Sandbox initiative.</p>
+</div>
+</div>
+<!-- Main Desktop Form View (Cols 8) -->
+<div class="lg:col-span-8 p-8 lg:p-12 flex flex-col justify-between">
+<div>
+<div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-6">
+<div>
+<h2 class="text-xl font-bold text-slate-900">Step 1: Primary Identity Details</h2>
+<p class="text-xs text-slate-500">Provide basic info so partner institutions recognize your credit profile.</p>
+</div>
+<div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl">
+<button class="px-2.5 py-1 text-xs font-semibold rounded-lg bg-settl-600 text-white">EN</button>
+<button class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900">සිංහල</button>
+<button class="px-2.5 py-1 text-xs font-semibold rounded-lg text-slate-600 hover:text-slate-900">தமிழ்</button>
+</div>
+</div>
+<div class="space-y-4">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Legal First Name (as in NIC/Passport) *</label>
+<input class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-settl-600" type="text" value="Kasun"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Legal Last Name *</label>
+<input class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-settl-600" type="text" value="Perera"/>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Date of Birth (Optional for now)</label>
+<input class="w-full text-sm px-3.5 py-2.5 rounded-xl border border-slate-300 font-mono" type="date" value="1996-08-14"/>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Primary Mobile Number</label>
+<div class="flex">
+<span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-slate-300 bg-slate-100 text-xs font-semibold text-slate-700">
+                        🇱🇰 +94
+                      </span>
+<input class="w-full text-sm px-3.5 py-2.5 rounded-r-xl border border-slate-300 font-mono" type="text" value="77 412 8901"/>
+</div>
+</div>
+</div>
+<div>
+<label class="block text-xs font-semibold text-slate-700 mb-1">Primary Freelance / Gig Domain</label>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+<button class="border-2 border-settl-600 bg-blue-50/50 p-2.5 rounded-xl text-left font-semibold text-xs text-settl-800" type="button">
+                      💻 Tech &amp; Dev
+                    </button>
+<button class="border border-slate-200 hover:bg-slate-50 p-2.5 rounded-xl text-left font-semibold text-xs text-slate-700" type="button">
+                      🎨 Design / UI
+                    </button>
+<button class="border border-slate-200 hover:bg-slate-50 p-2.5 rounded-xl text-left font-semibold text-xs text-slate-700" type="button">
+                      🚗 Rideshare &amp; Delivery
+                    </button>
+<button class="border border-slate-200 hover:bg-slate-50 p-2.5 rounded-xl text-left font-semibold text-xs text-slate-700" type="button">
+                      ✍️ Content &amp; Media
+                    </button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-8 flex items-center justify-between border-t border-slate-100">
+<button class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-4 py-2">
+                Save Draft &amp; Exit
+              </button>
+<div class="flex items-center gap-3">
+<button class="text-xs font-semibold text-slate-500 hover:text-slate-800 px-4 py-2">
+                  Skip this step
+                </button>
+<button class="bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs px-6 py-3 rounded-xl shadow transition flex items-center gap-1.5">
+<span>Save &amp; Continue to Income Setup</span>
+<svg class="w-4 h-4" fill="none" stroke="currentColor" viewbox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"></path></svg>
+</button>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- ================================================================= -->
+<!-- VIEW 3: LIVE INTERACTIVE PHONE SIMULATOR -->
+<!-- ================================================================= -->
+<section class="hidden py-4" data-purpose="interactive-flow-simulator" id="view-interactive">
+<div class="max-w-4xl mx-auto flex flex-col md:flex-row items-center justify-center gap-12">
+<!-- Controls & State Explanation -->
+<div class="md:w-5/12 space-y-4">
+<div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-100 text-settl-700 text-xs font-bold">
+<span class="w-2 h-2 rounded-full bg-settl-600 animate-ping"></span>
+            Interactive Prototype
+          </div>
+<h2 class="text-3xl font-extrabold text-slate-900">Step-by-Step Simulator</h2>
+<p class="text-sm text-slate-600 leading-relaxed">
+            Experience how a gig worker interacts with Settl. Click the actions inside the phone frame or use the navigation indicators below.
+          </p>
+<div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+<div class="flex justify-between items-center text-xs font-semibold">
+<span class="text-slate-500">Current Simulation Stage:</span>
+<span class="text-settl-600 font-bold" id="sim-step-label">Screen 1 of 5</span>
+</div>
+<div class="grid grid-cols-5 gap-1.5 h-2">
+<div class="bg-settl-600 rounded-full" id="sim-bar-1"></div>
+<div class="bg-slate-200 rounded-full transition-colors" id="sim-bar-2"></div>
+<div class="bg-slate-200 rounded-full transition-colors" id="sim-bar-3"></div>
+<div class="bg-slate-200 rounded-full transition-colors" id="sim-bar-4"></div>
+<div class="bg-slate-200 rounded-full transition-colors" id="sim-bar-5"></div>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 py-2 px-3 rounded-xl border border-slate-300 font-semibold text-xs text-slate-700 hover:bg-slate-50" onclick="prevSimStep()">
+              ← Previous Step
+            </button>
+<button class="flex-1 py-2 px-3 rounded-xl bg-settl-600 text-white font-semibold text-xs hover:bg-settl-700 shadow" onclick="nextSimStep()">
+              Next Step →
+            </button>
+</div>
+</div>
+<!-- Phone Device Hardware Wrapper -->
+<div class="w-[340px] flex-shrink-0 bg-white rounded-[44px] border-[8px] border-slate-900 shadow-2xl overflow-hidden min-h-[680px] flex flex-col justify-between relative">
+<!-- Hardware Speaker / Notch -->
+<div class="bg-white pt-3 px-6 pb-1 flex justify-between items-center text-[10px] font-semibold text-slate-800 select-none z-30">
+<span id="sim-clock">09:41</span>
+<div class="w-20 h-4 bg-slate-900 rounded-full mx-auto"></div>
+<span>5G 🇱🇰</span>
+</div>
+<!-- Dynamic Screen Slot -->
+<div class="flex-1 flex flex-col p-5" id="sim-screen-container">
+<!-- Content will be rendered by JS simulator -->
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- END: MainContent -->
+<!-- BEGIN: MainFooter -->
+<footer class="mt-auto bg-white border-t border-slate-200 py-6 text-xs text-slate-500">
+<div class="max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-slate-800">Settl Technologies Inc.</span>
+<span>•</span>
+<span>Empowering 300,000+ Sri Lankan Independent Earners</span>
+</div>
+<div class="flex items-center gap-4 text-[11px]">
+<span class="text-slate-400">Primary Fintech Color: #004FC5</span>
+<span class="text-slate-400">Font: Plus Jakarta Sans</span>
+<span class="text-slate-400">Numeric: Space Mono</span>
+</div>
+</div>
+</footer>
+<!-- END: MainFooter -->
+<!-- BEGIN: Interactive Switcher & Prototype JS -->
+<script data-purpose="tab-switcher">
+    function switchView(viewName) {
+      const views = ['mobile', 'desktop', 'interactive'];
+      views.forEach(v => {
+        const el = document.getElementById(`view-${v}`);
+        const btn = document.getElementById(`tab-btn-${v}`);
+        if (v === viewName) {
+          el.classList.remove('hidden');
+          el.classList.add('block');
+          btn.classList.add('bg-white', 'text-settl-600', 'shadow-sm');
+          btn.classList.remove('text-slate-600');
+        } else {
+          el.classList.add('hidden');
+          el.classList.remove('block');
+          btn.classList.remove('bg-white', 'text-settl-600', 'shadow-sm');
+          btn.classList.add('text-slate-600');
+        }
+      });
+      if(viewName === 'interactive') {
+        renderSimStep();
+      }
+    }
+  </script>
+<script data-purpose="simulator-engine">
+    let currentSimStep = 1;
+
+    const simScreens = {
+      1: `
+        <div class="flex-1 flex flex-col justify-between pt-4 animate-fade-in">
+          <div class="text-center">
+            <div class="w-12 h-12 bg-settl-600 text-white font-black text-2xl rounded-2xl mx-auto flex items-center justify-center shadow-lg shadow-blue-500/30 mb-2">
+              $
+            </div>
+            <h3 class="text-xl font-extrabold text-slate-900">Settl</h3>
+            <p class="text-xs text-slate-500 mt-1">Your work. Your credit profile.</p>
+          </div>
+
+          <div class="space-y-3 my-auto">
+            <div>
+              <label class="block text-xs font-semibold text-slate-700 mb-1">Work or Personal Email</label>
+              <input type="email" value="arjun@freelance.lk" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-slate-300 focus:ring-settl-600">
+            </div>
+            <button onclick="nextSimStep()" class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md flex items-center justify-center gap-1">
+              <span>Continue with Email</span>
+              <span>→</span>
+            </button>
+            <div class="text-center text-[10px] text-slate-400">or use single click</div>
+            <button onclick="nextSimStep()" class="w-full border border-slate-200 py-2 rounded-xl text-xs font-medium text-slate-700 hover:bg-slate-50">
+              Continue with Google
+            </button>
+          </div>
+
+          <div class="text-center text-[10px] text-slate-400">
+            🇱🇰 Built specifically for independent Lankan workers
+          </div>
+        </div>
+      `,
+      2: `
+        <div class="flex-1 flex flex-col justify-between pt-2 animate-fade-in">
+          <div>
+            <span class="text-[11px] font-bold text-settl-600">Step 1 of 5</span>
+            <h3 class="text-lg font-bold text-slate-900 mt-2">Verify email address</h3>
+            <p class="text-xs text-slate-500 mt-0.5">We sent a 6-digit PIN to <span class="font-semibold text-slate-800">arjun@freelance.lk</span></p>
+
+            <div class="mt-6 flex justify-between gap-1 font-mono">
+              <div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50 flex items-center justify-center font-bold text-lg text-settl-700">5</div>
+              <div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50 flex items-center justify-center font-bold text-lg text-settl-700">9</div>
+              <div class="w-10 h-12 rounded-lg border-2 border-settl-600 bg-blue-50 flex items-center justify-center font-bold text-lg text-settl-700">1</div>
+              <div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400">·</div>
+              <div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400">·</div>
+              <div class="w-10 h-12 rounded-lg border border-slate-200 bg-slate-50 flex items-center justify-center text-slate-400">·</div>
+            </div>
+            
+            <p class="text-[11px] text-settl-600 mt-4 text-center font-semibold cursor-pointer">Auto-filled from SMS/Email</p>
+          </div>
+
+          <button onclick="nextSimStep()" class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md">
+            Confirm &amp; Proceed
+          </button>
+        </div>
+      `,
+      3: `
+        <div class="flex-1 flex flex-col justify-between pt-2 animate-fade-in">
+          <div>
+            <div class="flex items-center justify-between text-[11px] font-semibold text-settl-600">
+              <span>Step 2 of 5</span>
+              <span class="text-slate-400">Basics</span>
+            </div>
+            <h3 class="text-lg font-bold text-slate-900 mt-1">Let's get started</h3>
+            <p class="text-xs text-slate-500">How should Sri Lankan lenders address you?</p>
+
+            <div class="mt-4 space-y-2.5">
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">First Name</label>
+                <input type="text" value="Kasun" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Last Name</label>
+                <input type="text" value="Perera" class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300">
+              </div>
+              <div>
+                <label class="block text-[11px] font-semibold text-slate-700 mb-0.5">Primary Location</label>
+                <select class="w-full text-xs px-3 py-2 rounded-lg border border-slate-300 bg-white">
+                  <option>Western Province (Colombo)</option>
+                  <option>Central Province (Kandy)</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="space-y-1.5 pt-4">
+            <button onclick="nextSimStep()" class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-2.5 rounded-xl shadow">
+              Next: Privacy &amp; Consent
+            </button>
+            <button onclick="nextSimStep()" class="w-full text-slate-400 text-[11px] py-1">Skip for now</button>
+          </div>
+        </div>
+      `,
+      4: `
+        <div class="flex-1 flex flex-col justify-between pt-2 animate-fade-in relative">
+          <div>
+            <div class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-blue-50 text-settl-700 text-[10px] font-bold">
+              <span>🛡️</span> PDPA Protected
+            </div>
+            <h3 class="text-base font-bold text-slate-900 mt-2">Your Data, Your Choice</h3>
+            <p class="text-[11px] text-slate-500">We prioritize privacy and financial independence.</p>
+
+            <div class="mt-3 space-y-2 text-xs">
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-100 flex gap-2">
+                <span class="text-settl-600 font-bold">✓</span>
+                <p class="text-[10px] text-slate-600"><strong>Minimization:</strong> Only gig invoices &amp; earnings are calculated.</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-100 flex gap-2">
+                <span class="text-settl-600 font-bold">✓</span>
+                <p class="text-[10px] text-slate-600"><strong>No Raw Logs:</strong> Banks only see your Settl Score badge.</p>
+              </div>
+              <div class="p-2 rounded-lg bg-slate-50 border border-slate-100 flex gap-2">
+                <span class="text-settl-600 font-bold">✓</span>
+                <p class="text-[10px] text-slate-600"><strong>Control:</strong> Revoke access anytime with one switch.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3">
+            <div class="p-2 rounded-lg bg-blue-50 text-settl-800 text-[10px] font-medium mb-3">
+              🔒 Bank-grade 256-bit encryption enabled.
+            </div>
+            <button onclick="nextSimStep()" class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow-md">
+              Agree &amp; Unlock Score
+            </button>
+          </div>
+        </div>
+      `,
+      5: `
+        <div class="flex-1 flex flex-col justify-between pt-6 text-center animate-fade-in">
+          <div>
+            <div class="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-3">
+              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>
+            </div>
+            <h3 class="text-xl font-black text-slate-900">You're in!</h3>
+            <p class="text-xs text-slate-500 mt-1">Profile verified. Ready to sync Upwork, Fiverr, or local accounts.</p>
+
+            <div class="mt-6 p-4 rounded-2xl bg-settl-900 text-white text-left shadow-lg">
+              <div class="flex justify-between text-[10px] text-blue-300">
+                <span>Calculated Baseline</span>
+                <span>Tier 1</span>
+              </div>
+              <div class="text-2xl font-bold font-mono mt-1 text-white">740 <span class="text-xs text-emerald-400 font-normal">Pre-Score</span></div>
+              <p class="text-[10px] text-slate-400 mt-1">Qualifies for initial collateral-free microcredit in Sri Lanka.</p>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <button onclick="currentSimStep=1; renderSimStep();" class="w-full bg-settl-600 hover:bg-settl-700 text-white font-semibold text-xs py-3 rounded-xl shadow">
+              Restart Simulation ↺
+            </button>
+          </div>
+        </div>
+      `
+    };
+
+    function renderSimStep() {
+      const container = document.getElementById('sim-screen-container');
+      if (!container) return;
+      container.innerHTML = simScreens[currentSimStep];
+
+      // Update indicator label and bar
+      const label = document.getElementById('sim-step-label');
+      if (label) label.innerText = `Screen ${currentSimStep} of 5`;
+
+      for (let i = 1; i <= 5; i++) {
+        const bar = document.getElementById(`sim-bar-${i}`);
+        if (bar) {
+          if (i <= currentSimStep) {
+            bar.classList.add('bg-settl-600');
+            bar.classList.remove('bg-slate-200');
+          } else {
+            bar.classList.remove('bg-settl-600');
+            bar.classList.add('bg-slate-200');
+          }
+        }
+      }
+    }
+
+    function nextSimStep() {
+      if (currentSimStep < 5) {
+        currentSimStep++;
+      } else {
+        currentSimStep = 1;
+      }
+      renderSimStep();
+    }
+
+    function prevSimStep() {
+      if (currentSimStep > 1) {
+        currentSimStep--;
+        renderSimStep();
+      }
+    }
+
+    // Initialize Simulator default screen on load
+    window.addEventListener('DOMContentLoaded', () => {
+      renderSimStep();
+    });
+  </script>
+<!-- END: Interactive Switcher & Prototype JS -->
+</body></html>

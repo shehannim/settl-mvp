@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 
-const API = "https://settl-backend-s3rc.onrender.com";
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 const CAROUSEL_ITEMS = [
   {
@@ -31,7 +31,7 @@ const CAROUSEL_ITEMS = [
   },
 ];
 
-export default function Login({ setToken, setUserId, go }) {
+export default function MyComponent({ setToken, setUserId, go, onAuthenticated }) {
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -56,13 +56,23 @@ export default function Login({ setToken, setUserId, go }) {
 
     try {
       const res = await axios.post(`${API}/api/auth/login`, form);
-
       const token = res.data.access_token;
+      const id = res.data.user_id;
 
-      setToken(token);
-      setUserId(res.data.user_id);
+      if (setToken) setToken(token);
+      if (setUserId) setUserId(id);
       localStorage.setItem("token", token);
-      go("dashboard");
+      if (id) localStorage.setItem("userId", id);
+
+      if (onAuthenticated) {
+        onAuthenticated({
+          accessToken: token,
+          id,
+          email: form.email,
+        });
+      } else if (go) {
+        go("dashboard");
+      }
     } catch (e) {
       if (e.response) {
         setError(e.response.data.detail || "Invalid login");
@@ -84,11 +94,13 @@ export default function Login({ setToken, setUserId, go }) {
         {/* Top Header in Hero */}
         <div className="relative z-10 flex items-center justify-between">
           <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-5 py-3 rounded-2xl border border-white/15">
+            {/* Enlarged Settl Logo for stronger visual emphasis */}
             <svg
               viewBox="0 0 160 48"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
               className="h-10 sm:h-12 w-auto"
+              aria-label="Settl"
             >
               <path
                 d="M6 14L16 10V38L6 34V14Z"
@@ -124,6 +136,10 @@ export default function Login({ setToken, setUserId, go }) {
             <br />
             Your credit profile.
           </h1>
+          <p className="text-blue-100 text-base lg:text-lg leading-relaxed mb-8">
+            Underwrite your real freelance earnings across Upwork, Fiverr,
+            PickMe &amp; Daraz into a verified institutional credit score.
+          </p>
 
           {/* Animated Social Proof Carousel */}
           <div className="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/15 shadow-inner min-h-[88px] flex items-center overflow-hidden">
@@ -153,9 +169,7 @@ export default function Login({ setToken, setUserId, go }) {
                   <span
                     key={idx}
                     className={`h-1.5 rounded-full transition-all duration-300 ${
-                      idx === carouselIndex
-                        ? "w-3 bg-white"
-                        : "w-1.5 bg-white/30"
+                      idx === carouselIndex ? "w-3 bg-white" : "w-1.5 bg-white/30"
                     }`}
                   />
                 ))}
@@ -199,7 +213,7 @@ export default function Login({ setToken, setUserId, go }) {
             Don't have an account?{" "}
             <button
               type="button"
-              onClick={() => go("register")}
+              onClick={() => go && go("register")}
               className="font-bold text-[#004fc5] hover:underline ml-1 cursor-pointer"
             >
               Register

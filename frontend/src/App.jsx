@@ -1,618 +1,289 @@
-import { useState, useEffect, useRef } from "react";
-import "./App.css";
-import fingerprintLogo from "./assets/fingerprint.png";
-
-// Pages
-import Register from "./pages/Register.jsx";
-import Login from "./pages/Login.jsx";
+import { useState } from "react";
+import logo from "./assets/Settl Logo Black.png";
+import Auth from "./pages/Auth.jsx";
+import EmailVerify from "./pages/EmailVerify.jsx";
+import Consent from "./pages/Consent.jsx";
 import KYC from "./pages/KYC.jsx";
+import PersonalDetails from "./pages/PersonalDetails.jsx";
+import IncomeStreams from "./pages/IncomeStreams.jsx";
+import ScoreCalibration from "./pages/ScoreCalibration.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
 import BillUpload from "./pages/BillUpload.jsx";
 import PayPalConnect from "./pages/PayPalConnect.jsx";
 import PayPalCallback from "./pages/PayPalCallback.jsx";
+import PayPalDashboard from "./pages/PayPalDashboard.jsx";
+import PayPalSuccess from "./pages/PayPalSuccess.jsx";
 import PayoneerConnect from "./pages/PayoneerConnect.jsx";
 import PayoneerCallback from "./pages/PayoneerCallback.jsx";
 import PayoneerDashboard from "./pages/PayoneerDashboard.jsx";
 import PayoneerSuccess from "./pages/PayoneerSuccess.jsx";
-import PayPalDashboard from "./pages/PayPalDashboard.jsx";
-import PayPalSuccess from "./pages/PayPalSuccess.jsx";
 
-/* =========================
-   Icons
-========================= */
-
-function MenuIcon() {
-  return (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="3" y1="6" x2="21" y2="6" />
-      <line x1="3" y1="12" x2="21" y2="12" />
-      <line x1="3" y1="18" x2="21" y2="18" />
-    </svg>
-  );
-}
-
-function ChevronDownIcon({ open = false }) {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      className={`transition-transform duration-200 ${open ? "rotate-180" : ""}`}
-    >
-      <polyline points="6 9 12 15 18 9" />
-    </svg>
-  );
-}
-
-function LogoutIcon() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-      <polyline points="16 17 21 12 16 7" />
-      <line x1="21" y1="12" x2="9" y2="12" />
-    </svg>
-  );
-}
-
-function UserIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21a8 8 0 0 0-16 0" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
-  );
-}
-
-function MailIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <path d="m21 7-9 6-9-6" />
-    </svg>
-  );
-}
-
-function IdIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="5" width="18" height="14" rx="2" />
-      <line x1="8" y1="10" x2="8" y2="10" />
-      <line x1="12" y1="10" x2="16" y2="10" />
-      <line x1="12" y1="14" x2="16" y2="14" />
-    </svg>
-  );
-}
-
-function ShieldIcon() {
-  return (
-    <svg
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-    </svg>
-  );
-}
-
-/* =========================
-   App
-========================= */
+const onboardingPages = new Set([
+  "auth",
+  "email-verify",
+  "consent",
+  "kyc",
+  "personal-details",
+  "income-streams",
+  "score-calibration",
+]);
 
 export default function App() {
+  const [token, setToken] = useState(() => localStorage.getItem("token") || "");
+  const [userId, setUserId] = useState(
+    () => localStorage.getItem("userId") || "",
+  );
+  const [page, setPage] = useState(() => {
+    if (window.location.search.includes("code=")) return "paypal-callback";
+    if (window.location.pathname.includes("/connect/payoneer/success"))
+      return "payoneer-success";
+    if (window.location.pathname.includes("/connect/paypal/success"))
+      return "paypal-success";
+    const savedPage = localStorage.getItem("current_page");
+    if (savedPage) return savedPage;
+    return localStorage.getItem("token") ? "dashboard" : "auth";
+  });
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
 
-  const profileMenuRef = useRef(null);
-  const profileButtonRef = useRef(null);
-  const mobileMenuRef = useRef(null);
-  const mobileButtonRef = useRef(null);
-
-  const savedToken = localStorage.getItem("token");
-  const [page, setPage] = useState(savedToken ? "dashboard" : "login");
-  const [token, setToken] = useState(savedToken || "");
-  const [userId, setUserId] = useState(localStorage.getItem("userId") || "");
-
-  const go = (p) => {
-    setPage(p);
-    setProfileMenuOpen(false);
+  const go = (nextPage) => {
+    localStorage.setItem("current_page", nextPage);
+    setPage(nextPage);
     setMobileMenuOpen(false);
+  };
+
+  const completeAuth = ({ accessToken, id, email, name, signupMethod = "email", isRegister = false }) => {
+    localStorage.setItem("token", accessToken);
+    localStorage.setItem("userId", id);
+    if (email) localStorage.setItem("email", email);
+    if (name) localStorage.setItem("name", name);
+    localStorage.setItem("auth_provider", signupMethod);
+    setToken(accessToken);
+    setUserId(id);
+
+    // SSO users (Google / Apple) bypass OTP because their email is pre-verified -> go straight to PDPA Data Consent
+    if (signupMethod === "google" || signupMethod === "apple") {
+      go("consent");
+      return;
+    }
+
+    // Email Sign-up routes directly to Email OTP verification screen
+    if (isRegister) {
+      go("email-verify");
+      return;
+    }
+
+    // Returning user sign-in: route to dashboard or next uncompleted step
+    go("dashboard");
   };
 
   const logout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("paypal_user_id");
-    localStorage.removeItem("userId");
+    [
+      "token",
+      "userId",
+      "user_id",
+      "email",
+      "name",
+      "auth_provider",
+      "email_verified",
+      "pdpa_consent_granted",
+      "kyc_verified",
+      "kyc_status",
+      "current_page",
+    ].forEach((key) => localStorage.removeItem(key));
     setToken("");
     setUserId("");
-    setProfileMenuOpen(false);
-    setMobileMenuOpen(false);
-    setPage("login");
+    go("auth");
   };
 
-  useEffect(() => {
-    const search = window.location.search;
-    const path = window.location.pathname;
-
-    if (search.includes("code=")) {
-      setPage("paypal-callback");
-      return;
-    }
-
-    if (path.includes("/connect/payoneer/success")) {
-      setPage("payoneer-success");
-      return;
-    }
-
-    if (path.includes("/connect/paypal/success")) {
-      setPage("paypal-success");
-      return;
-    }
-  }, []);
-
-  /* outside click handling */
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (
-        profileMenuOpen &&
-        profileMenuRef.current &&
-        !profileMenuRef.current.contains(event.target) &&
-        profileButtonRef.current &&
-        !profileButtonRef.current.contains(event.target)
-      ) {
-        setProfileMenuOpen(false);
-      }
-
-      if (
-        mobileMenuOpen &&
-        mobileMenuRef.current &&
-        !mobileMenuRef.current.contains(event.target) &&
-        mobileButtonRef.current &&
-        !mobileButtonRef.current.contains(event.target)
-      ) {
-        setMobileMenuOpen(false);
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [profileMenuOpen, mobileMenuOpen]);
-
-  const userEmail = localStorage.getItem("email") || "user@settl.io";
-  const storedName = localStorage.getItem("name");
-  const userName =
-    storedName ||
-    userEmail
-      .split("@")[0]
-      .replace(/\./g, " ")
-      .replace(/\b\w/g, (c) => c.toUpperCase()) ||
-    "User Name";
-
-  const profileType = "Personal";
-  const accountStatus = "Verified";
-  const firstLetter = userName?.[0]?.toUpperCase() || "U";
-  const displayUserId = userId || localStorage.getItem("userId") || "USR-29184";
-
-  const tabs = [
-    { id: "dashboard", label: "Dashboard" },
-    { id: "paypal-dashboard", label: "Income" },
-    { id: "bill-upload", label: "Bills" },
-  ];
-
-  /* ================= AUTH VIEW ================= */
-  if (!token) {
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-900">
-        <div className="sticky top-0 z-40 w-full bg-white/80 backdrop-blur-xl border-b border-black/5">
-          <div className="max-w-[1500px] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
-            <button
-              onClick={() => go("login")}
-              className="flex items-center gap-3 cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden p-1">
-                <img
-                  src={fingerprintLogo}
-                  alt="Settl Logo"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-
-              <span className="font-semibold text-lg tracking-tight text-slate-900">
-                Settl
-              </span>
-            </button>
-
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => go("login")}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                  page === "login"
-                    ? "bg-black text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Login
-              </button>
-              <button
-                onClick={() => go("register")}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition ${
-                  page === "register"
-                    ? "bg-black text-white"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Register
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {page === "login" && (
-          <Login setToken={setToken} setUserId={setUserId} go={go} />
-        )}
-        {page === "register" && (
-          <Register setToken={setToken} setUserId={setUserId} go={go} />
-        )}
-      </div>
-    );
+  if (onboardingPages.has(page)) {
+    if (page === "auth") return <Auth onAuthenticated={completeAuth} />;
+    if (page === "email-verify") return <EmailVerify go={go} onVerified={() => go("consent")} />;
+    if (page === "consent") return <Consent go={go} />;
+    if (page === "kyc") return <KYC token={token} go={go} />;
+    if (page === "personal-details") return <PersonalDetails go={go} />;
+    if (page === "income-streams") return <IncomeStreams go={go} />;
+    if (page === "score-calibration") return <ScoreCalibration go={go} token={token} />;
+    return <IncomeStreams go={go} />;
   }
 
+  const userName = localStorage.getItem("name") || "Your profile";
+  const tabs = [
+    ["dashboard", "Dashboard"],
+    ["paypal-dashboard", "Income"],
+    ["bill-upload", "Bills"],
+  ];
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
-      <style>{`
-        @keyframes dropdownIn {
-          0% {
-            opacity: 0;
-            transform: translateY(-8px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        @keyframes mobileMenuIn {
-          0% {
-            opacity: 0;
-            transform: translateY(-10px) scale(0.98);
-          }
-          100% {
-            opacity: 1;
-            transform: translateY(0) scale(1);
-          }
-        }
-
-        .dropdown-animate {
-          animation: dropdownIn 160ms ease-out;
-          transform-origin: top right;
-        }
-
-        .mobilemenu-animate {
-          animation: mobileMenuIn 170ms ease-out;
-          transform-origin: top center;
-        }
-
-        .glass-dropdown {
-          background: rgba(255,255,255,0.62);
-          backdrop-filter: blur(22px) saturate(160%);
-          -webkit-backdrop-filter: blur(22px) saturate(160%);
-          border: 1px solid rgba(255,255,255,0.45);
-          box-shadow: 0 12px 30px rgba(15,23,42,0.08);
-        }
-      `}</style>
-
-      {/* NAVBAR */}
-      <nav className="sticky top-0 z-50 w-full bg-white/70 backdrop-blur-xl border-b border-black/5">
-        <div className="max-w-[1500px] mx-auto h-[76px] px-4 sm:px-6 md:px-10 flex items-center justify-between">
-
-          {/* LEFT */}
-          <div className="flex items-center gap-6 lg:gap-8">
-            <button
-              onClick={() => go("dashboard")}
-              className="flex items-center gap-3 cursor-pointer"
-            >
-              <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center shadow-sm overflow-hidden p-1">
-                <img
-                  src={fingerprintLogo}
-                  alt="Settl Logo"
-                  className="w-full h-full object-contain"
-                />
-              </div>
-
-              <span className="font-semibold text-[18px] tracking-tight text-slate-900">
-                Settl
-              </span>
-            </button>
-
-            {/* DESKTOP TABS */}
-            <div className="hidden md:flex items-center gap-2">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => go(tab.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-medium transition-all duration-200 ${
-                    page === tab.id
-                      ? "bg-black text-white shadow-sm"
-                      : "text-slate-600 hover:text-black hover:bg-white"
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* RIGHT */}
-          <div className="flex items-center gap-3">
-            {/* HAMBURGER BUTTON */}
-            <button
-              ref={mobileButtonRef}
-              className="md:hidden w-10 h-10 rounded-full bg-white hover:bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-700 transition"
-              onClick={() => setMobileMenuOpen((prev) => !prev)}
-              aria-label="Open menu"
-            >
-              <MenuIcon />
-            </button>
-
-            {/* PROFILE BUTTON */}
-            <div className="relative">
-              <button
-                ref={profileButtonRef}
-                onClick={() => setProfileMenuOpen((prev) => !prev)}
-                className="
-                  h-11 pl-2.5 pr-3.5 rounded-full
-                  bg-white border border-slate-200
-                  shadow-[0_6px_18px_rgba(15,23,42,0.05)]
-                  flex items-center gap-2.5
-                  hover:bg-slate-50 transition-all duration-200
-                "
-              >
-                <div className="w-8 h-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-semibold">
-                  {firstLetter}
-                </div>
-
-                <div className="hidden sm:flex flex-col items-start leading-none">
-                  <span className="text-[11px] uppercase tracking-[0.12em] text-slate-400 font-semibold">
-                    My Account
-                  </span>
-                  <span className="text-sm font-medium text-slate-800 flex items-center gap-1">
-                    Profile
-                    <ChevronDownIcon open={profileMenuOpen} />
-                  </span>
-                </div>
-              </button>
-
-              {/* PROFILE DROPDOWN */}
-              {profileMenuOpen && (
-                <div
-                  ref={profileMenuRef}
-                  className="
-                    dropdown-animate
-                    absolute right-0 top-[64px]
-                    w-[340px] sm:w-[360px]
-                    rounded-[24px]
-                    overflow-hidden
-                    glass-dropdown
-                    z-50
-                  "
-                >
-                  <div className="p-5">
-
-                    {/* HEADER */}
-                    <div className="flex items-start gap-4">
-                      <div className="w-14 h-14 rounded-2xl bg-black text-white flex items-center justify-center text-xl font-semibold shadow-sm">
-                        {firstLetter}
-                      </div>
-
-                      <div className="min-w-0 flex-1">
-                        <div className="text-[20px] font-semibold text-slate-900 leading-tight truncate">
-                          {userName}
-                        </div>
-                        <div className="text-sm text-slate-600 truncate mt-0.5">
-                          {userEmail}
-                        </div>
-                        <button className="mt-2 text-sm font-medium text-slate-900 underline decoration-slate-300 underline-offset-4 hover:decoration-slate-900 transition">
-                          Manage Account
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-slate-200 my-5" />
-
-                    {/* DETAILS */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-500">
-                          <UserIcon />
-                          <span>Profile</span>
-                        </div>
-                        <span className="font-medium text-slate-900">{profileType}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-500">
-                          <MailIcon />
-                          <span>Email</span>
-                        </div>
-                        <span className="font-medium text-slate-900 truncate max-w-[170px] text-right">
-                          {userEmail}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-500">
-                          <IdIcon />
-                          <span>Settl ID</span>
-                        </div>
-                        <span className="font-medium text-slate-900">{displayUserId}</span>
-                      </div>
-
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2 text-slate-500">
-                          <ShieldIcon />
-                          <span>Status</span>
-                        </div>
-                        <span className="font-medium text-emerald-600">{accountStatus}</span>
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-slate-200 my-5" />
-
-                    {/* FEATURE CARD */}
-                    <div className="rounded-2xl bg-black text-white p-4 shadow-sm">
-                      <div className="text-sm font-semibold mb-1">AI Insights</div>
-                      <div className="text-xs text-white/70 leading-relaxed">
-                        Unlock financial intelligence and profile readiness signals.
-                      </div>
-                    </div>
-
-                    <div className="h-px bg-slate-200 my-5" />
-
-                    {/* LOGOUT */}
-                    <button
-                      onClick={logout}
-                      className="
-                        w-full flex items-center gap-3
-                        px-4 py-3 rounded-2xl
-                        text-red-600 hover:bg-red-50
-                        transition text-sm font-medium
-                      "
-                    >
-                      <LogoutIcon />
-                      Sign Out
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </nav>
-
-      {/* MOBILE MENU */}
-      {mobileMenuOpen && (
-        <div className="md:hidden px-4 pt-3 relative z-30">
-          <div
-            ref={mobileMenuRef}
-            className="mobilemenu-animate rounded-3xl bg-white border border-slate-200 shadow-sm p-3"
+    <div className="min-h-screen bg-[#f8f9ff] text-slate-900 font-sans">
+      <header className="sticky top-0 z-30 bg-[#f8f9ff]/80 backdrop-blur-md [-webkit-backdrop-filter:blur(12px)]">
+        <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-4 sm:px-6">
+          <button
+            onClick={() => go("dashboard")}
+            className="flex items-center"
+            aria-label="Settl dashboard"
           >
-            <div className="px-3 py-3 mb-2">
-              <div className="text-sm font-semibold text-slate-900 truncate">
-                {userName}
-              </div>
-              <div className="text-xs text-slate-500 truncate">{userEmail}</div>
-              <div className="text-[11px] text-slate-400 mt-1">
-                ID: {displayUserId}
-              </div>
-            </div>
+            <img
+              src={logo}
+              alt="Settl"
+              className="h-10 sm:h-9 w-auto object-contain"
+            />
+          </button>
 
-            <div className="space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => go(tab.id)}
-                  className={`
-                    w-full text-left px-4 py-3 rounded-2xl text-sm font-medium transition
-                    ${
-                      page === tab.id
-                        ? "bg-black text-white"
-                        : "text-slate-700 hover:bg-slate-100"
-                    }
-                  `}
-                >
-                  {tab.label}
-                </button>
-              ))}
-            </div>
+          {/* Desktop Navigation */}
+          <nav
+            className="hidden items-center gap-1 md:flex"
+            aria-label="Primary navigation"
+          >
+            {tabs.map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => go(id)}
+                className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                  page === id
+                    ? "bg-[#004fc5] text-white shadow-xs"
+                    : "text-slate-600 hover:bg-blue-50 hover:text-[#004fc5]"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </nav>
 
-            <div className="h-px bg-slate-200 my-3" />
-
+          {/* Desktop Right Actions */}
+          <div className="hidden md:flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-500">
+              {userName}
+            </span>
             <button
               onClick={logout}
-              className="w-full text-left px-4 py-3 rounded-2xl text-red-600 hover:bg-red-50 text-sm font-medium transition"
+              className="rounded-full border border-slate-200 px-3.5 py-2 text-sm font-semibold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-600"
             >
-              Sign Out
+              Sign out
+            </button>
+          </div>
+
+          {/* Mobile Hamburger Button */}
+          <div className="flex md:hidden items-center">
+            <button
+              type="button"
+              onClick={() => setMobileMenuOpen((prev) => !prev)}
+              aria-label={
+                mobileMenuOpen
+                  ? "Close navigation menu"
+                  : "Open navigation menu"
+              }
+              aria-expanded={mobileMenuOpen}
+              className="flex h-10 w-10 items-center justify-center text-slate-700 hover:text-[#004fc5] active:scale-90 transition-all focus:outline-none"
+            >
+              <div
+                className={`transition-transform duration-300 transform ${mobileMenuOpen ? "rotate-90 text-[#004fc5]" : "rotate-0"}`}
+              >
+                {mobileMenuOpen ? (
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="h-6 w-6"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2.2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4 6h16M4 12h16M4 18h16"
+                    />
+                  </svg>
+                )}
+              </div>
             </button>
           </div>
         </div>
-      )}
 
-      {/* ROUTER */}
-      <main className="w-full">
+        {/* Mobile Dropdown Menu Drawer with Smooth Slide & Fade Animation */}
+        <div
+          className={`md:hidden overflow-hidden transition-all duration-300 ease-in-out bg-[#f8f9ff]/95 backdrop-blur-xl shadow-xl ${
+            mobileMenuOpen
+              ? "max-h-[380px] opacity-100 border-t border-slate-200/60"
+              : "max-h-0 opacity-0 border-t-0 pointer-events-none"
+          }`}
+        >
+          <div className="px-4 pb-5 pt-3">
+            <div className="mb-3 px-3.5 py-2 rounded-xl bg-white border border-slate-100 flex items-center justify-between">
+              <span className="text-xs text-slate-500 font-medium">
+                Signed in as
+              </span>
+              <span className="text-xs font-bold text-slate-800">
+                {userName}
+              </span>
+            </div>
+
+            <nav
+              className="flex flex-col gap-1.5"
+              aria-label="Mobile primary navigation"
+            >
+              {tabs.map(([id, label]) => (
+                <button
+                  key={id}
+                  onClick={() => {
+                    go(id);
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`flex items-center justify-between w-full px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                    page === id
+                      ? "bg-[#004fc5] text-white shadow-sm"
+                      : "text-slate-700 bg-white/70 hover:bg-white hover:text-[#004fc5]"
+                  }`}
+                >
+                  <span>{label}</span>
+                  {page === id && <span className="text-xs">●</span>}
+                </button>
+              ))}
+            </nav>
+
+            <div className="mt-4 pt-3 border-t border-slate-200/60">
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  logout();
+                }}
+                className="w-full flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50/50 py-2.5 text-sm font-bold text-red-600 transition hover:bg-red-50 hover:text-red-700"
+              >
+                Sign out
+              </button>
+            </div>
+          </div>
+        </div>
+      </header>
+      <main key={page} className="animate-page-transition">
         {page === "dashboard" && (
-          <Dashboard token={token} userId={displayUserId} go={go} />
+          <Dashboard token={token} userId={userId} go={go} />
         )}
-        {page === "kyc" && <KYC token={token} go={go} />}
-        {page === "bill-upload" && (
-          <BillUpload token={token} go={go} />
-        )}
+        {page === "bill-upload" && <BillUpload token={token} go={go} />}
         {page === "paypal-connect" && <PayPalConnect go={go} />}
+        {page === "paypal-callback" && (
+          <PayPalCallback go={go} setUserId={setUserId} />
+        )}
+        {page === "paypal-success" && <PayPalSuccess go={go} />}
+        {page === "paypal-dashboard" && <PayPalDashboard go={go} />}
         {page === "payoneer-connect" && <PayoneerConnect go={go} />}
         {page === "payoneer-callback" && (
           <PayoneerCallback go={go} setUserId={setUserId} />
         )}
         {page === "payoneer-success" && <PayoneerSuccess go={go} />}
         {page === "payoneer-dashboard" && <PayoneerDashboard go={go} />}
-        {page === "paypal-callback" && (
-          <PayPalCallback go={go} setUserId={setUserId} />
-        )}
-        {page === "paypal-success" && <PayPalSuccess go={go} />}
-        {page === "paypal-dashboard" && <PayPalDashboard go={go} />}
       </main>
     </div>
   );

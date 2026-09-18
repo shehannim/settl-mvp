@@ -1,7 +1,73 @@
 @import "tailwindcss";
 
 @theme {
-  /*  Tailwind v4 maps these directly to font-sans and font-mono utilities! */
+  /* Fonts */
   --font-sans: "Plus Jakarta Sans", sans-serif;
   --font-mono: "Geist Mono", monospace;
+
+  /* Primary Brand Tokens */
+  --color-primary: #004fc5;
+  --color-primary-hover: #0043a8;
+  --color-primary-dark: #003a94;
+  --color-primary-container: #004fc5;
+  --color-on-primary: #ffffff;
+  --color-on-primary-container: #bdcdff;
+  --color-primary-fixed: #dae2ff;
+  --color-primary-fixed-dim: #b2c5ff;
+
+  /* Secondary / Success Tokens */
+  --color-secondary: #006a61;
+  --color-secondary-teal: #0d9488;
+  --color-secondary-container: #86f2e4;
+  --color-on-secondary: #ffffff;
+  --color-on-secondary-container: #006f66;
+  --color-secondary-fixed: #89f5e7;
+  --color-secondary-fixed-dim: #6bd8cb;
+
+  /* Tertiary / Warning Tokens */
+  --color-tertiary: #5c3800;
+  --color-tertiary-amber: #f59e0b;
+  --color-tertiary-container: #7c4d00;
+  --color-on-tertiary: #ffffff;
+  --color-on-tertiary-container: #ffc278;
+  --color-tertiary-fixed: #ffddb8;
+  --color-tertiary-fixed-dim: #ffb95f;
+
+  /* Error Tokens */
+  --color-error: #ba1a1a;
+  --color-error-crimson: #dc2626;
+  --color-error-container: #ffdad6;
+  --color-on-error: #ffffff;
+  --color-on-error-container: #93000a;
+
+  /* Surfaces & Neutrals */
+  --color-canvas: #fafafc;
+  --color-surface: #f8f9ff;
+  --color-surface-dim: #ccdbf3;
+  --color-surface-bright: #f8f9ff;
+  --color-surface-container-lowest: #ffffff;
+  --color-surface-container-low: #eff4ff;
+  --color-surface-container: #e6eeff;
+  --color-surface-container-high: #dce9ff;
+  --color-surface-container-highest: #d5e3fc;
+  --color-on-surface: #0d1c2e;
+  --color-on-surface-variant: #434654;
+  --color-outline: #737685;
+  --color-outline-variant: #c3c6d6;
+  --color-border-hairline: #e2e8f0;
+}
+
+@keyframes pageFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-page-transition {
+  animation: pageFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
