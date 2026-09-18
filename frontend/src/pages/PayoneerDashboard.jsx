@@ -168,6 +168,11 @@ export default function PayoneerDashboard({ go }) {
   const [disconnectingId, setDisconnectingId] = useState(null);
   const [confirmDisconnectId, setConfirmDisconnectId] = useState(null);
 
+  const [stmtFile, setStmtFile] = useState(null);
+  const [stmtUploading, setStmtUploading] = useState(false);
+  const [stmtResult, setStmtResult] = useState(null);
+  const [stmtError, setStmtError] = useState("");
+
   const authToken = localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${authToken}` };
 
@@ -236,6 +241,33 @@ export default function PayoneerDashboard({ go }) {
     setSources(sources.filter((s) => s.id !== source.id));
     setConfirmDisconnectId(null);
     setDisconnectingId(null);
+  };
+
+  const uploadStatement = async () => {
+    if (!stmtFile) return;
+    setStmtUploading(true);
+    setStmtError("");
+    setStmtResult(null);
+
+    try {
+      const form = new FormData();
+      form.append("file", stmtFile);
+
+      const res = await axios.post(`${API}/api/ingest/payoneer-statement`, form, {
+        headers: { ...headers, "Content-Type": "multipart/form-data" },
+        timeout: 120000,
+      });
+
+      setStmtResult(res.data);
+      await loadSources();
+    } catch (err) {
+      setStmtError(
+        (err.response?.status ? `Upload failed (${err.response.status}): ` : "") +
+          (err.response?.data?.detail || err.message || "Statement upload failed")
+      );
+    }
+
+    setStmtUploading(false);
   };
 
   const sortedSources = useMemo(
@@ -329,8 +361,62 @@ export default function PayoneerDashboard({ go }) {
               </div>
             </div>
 
-            {/* Sources */}
-            <div className="space-y-4">
+            {/* Statement import fallback */}
+            <div className="mb-5 rounded-2xl border border-dashed border-slate-300 bg-slate-50/60 p-5">
+              <div className="text-[10px] font-bold uppercase tracking-[0.18em] text-slate-400 mb-2">
+                Statement Import
+              </div>
+              <div className="text-sm font-semibold text-slate-900">
+                No Payoneer login? Upload a statement
+              </div>
+              <p className="text-xs text-slate-500 mt-1 mb-4">
+                Monthly account-statement PDF — payouts feed the same income engine.
+              </p>
+
+              <input
+                id="payoneerStmtInput"
+                type="file"
+                accept=".pdf"
+                className="hidden"
+                onChange={(e) => setStmtFile(e.target.files[0] || null)}
+              />
+
+              <div className="flex flex-col gap-2">
+                <button
+                  onClick={() => document.getElementById("payoneerStmtInput").click()}
+                  className="w-full bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 text-sm font-medium py-2.5 rounded-xl transition truncate px-4 text-left flex justify-between items-center"
+                >
+                  {stmtFile ? stmtFile.name : "Select statement PDF..."}
+                  <span className="text-slate-400 text-xs border border-slate-200 rounded px-2 py-0.5">
+                    Browse
+                  </span>
+                </button>
+
+                <button
+                  onClick={uploadStatement}
+                  disabled={!stmtFile || stmtUploading}
+                  className="w-full bg-[#ff4800] hover:bg-[#d63d00] disabled:bg-slate-300 text-white text-sm font-bold py-2.5 rounded-xl transition"
+                >
+                  {stmtUploading ? "Parsing statement..." : "Import payouts"}
+                </button>
+              </div>
+
+              {stmtError && (
+                <div className="text-xs font-medium text-red-600 bg-red-50 p-2.5 rounded-lg border border-red-100 mt-3">
+                  {stmtError}
+                </div>
+              )}
+
+              {stmtResult && (
+                <div className="text-xs font-medium text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-100 mt-3">
+                  Imported {stmtResult.payout_count} payouts across{" "}
+                  {stmtResult.months_covered} months
+                  {stmtResult.account_name ? ` · ${stmtResult.account_name}` : ""}.
+                </div>
+              )}
+            </div>
+
+            {/* Sources */}            <div className="space-y-4">
               {sources.length === 0 && (
                 <div className="py-8 text-center border-2 border-dashed border-slate-200 rounded-2xl">
                   <p className="text-xs text-slate-400 font-bold uppercase tracking-widest">
