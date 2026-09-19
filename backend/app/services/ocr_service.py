@@ -483,27 +483,39 @@ def extract_text_with_provenance(pdf_bytes: bytes) -> tuple[str, Dict]:
             import subprocess
             import tempfile
             import os
+            import shutil
+
+            if shutil.which("pdftoppm") is None:
+                raise RuntimeError("pdftoppm binary not found, skipping tesseract stage")
 
             start = time.perf_counter()
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as f:
-                f.write(pdf_bytes)
-                tmp_path = f.name
+            # Cross-platform temp dir (no /tmp hardcode); OCR every rendered
+            # page, not just page 1, so multi-page scans work on any OS.
+            with tempfile.TemporaryDirectory(prefix="settl_ocr_") as tmpdir:
+                pdf_path = os.path.join(tmpdir, "bill.pdf")
+                with open(pdf_path, "wb") as f:
+                    f.write(pdf_bytes)
 
-            subprocess.run(
-                ["pdftoppm", "-jpeg", "-r", "250", tmp_path, "/tmp/ocr_page"],
-                capture_output=True
-            )
+                out_prefix = os.path.join(tmpdir, "ocr_page")
+                subprocess.run(
+                    ["pdftoppm", "-jpeg", "-r", "250", pdf_path, out_prefix],
+                    capture_output=True,
+                    timeout=120,
+                )
 
-            os.unlink(tmp_path)
-
-            img_path = "/tmp/ocr_page-1.jpg"
-
-            if os.path.exists(img_path):
-                img = Image.open(img_path)
-                text = pytesseract.image_to_string(img)
-                os.unlink(img_path)
+                pages = sorted(
+                    p for p in os.listdir(tmpdir)
+                    if p.startswith("ocr_page") and p.endswith(".jpg")
+                )[:10]  # cap: first 10 pages bound latency on huge scans
+                chunks = []
+                for page in pages:
+                    img = Image.open(os.path.join(tmpdir, page))
+                    chunks.append(pytesseract.image_to_string(img))
+                if chunks:
+                    text = "\n\n".join(c for c in chunks if c.strip())
 
             timings["tesseract_ms"] = round((time.perf_counter() - start) * 1000, 1)
+            timings["tesseract_pages"] = len(pages)
             stage = "tesseract"
         except Exception as e:
             print("Tesseract OCR fallback failed:", e)
