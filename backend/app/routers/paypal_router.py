@@ -1,6 +1,11 @@
-"""DEPRECATED legacy PayPal router — not registered in app.main.
+"""DEPRECATED legacy PayPal router — NEVER register in app.main.
 
-Kept for reference only. Do not store raw access/refresh tokens.
+Kept for reference only. Known-broken, do not revive without fixing:
+- pull_transactions() raises NameError (bare `supabase` name, client lives
+  only in exchange_token's scope — pass it explicitly).
+- Hardcodes LIVE https://api-m.paypal.com (sandbox is api-m.sandbox).
+- Writes raw access/refresh tokens (must store SHA-256 hashes only).
+- Tables paypal_connections/paypal_transactions are not in supabase_schema.sql.
 Use /api/connect/paypal (OAuth with hashed token storage) instead.
 """
 import hashlib
