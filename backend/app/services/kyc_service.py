@@ -21,7 +21,8 @@ def validate_nic(nic: str) -> Tuple[bool, str]:
 
     if re.match(r"^\d{12}$", nic):
         year = int(nic[:4])
-        if not (1900 <= year <= 2010):
+        current_year = datetime.now(timezone.utc).year
+        if not (1900 <= year <= current_year):
             return False, "Invalid birth year in NIC"
         return True, ""
 
