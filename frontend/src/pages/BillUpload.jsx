@@ -327,15 +327,12 @@ export default function BillUpload({ token, go }) {
           <div>
             <div className="flex items-center gap-2.5">
               <h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl text-slate-900">
-                Utility Statements & Bills
+                Utility Bills
               </h1>
               <span className="rounded-full border border-blue-200 bg-blue-50 px-2.5 py-0.5 text-xs font-bold text-[#004fc5]">
                 Alternative Credit Signals
               </span>
             </div>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
-              Upload Ceylon Electricity Board, SLT Fibre, or Dialog statements to calibrate payment regularity and boost your Settl score.
-            </p>
           </div>
 
           {go && (
