@@ -2,7 +2,8 @@ import { useState } from "react";
 import logo from "../assets/Settl Logo.png";
 
 export default function Consent({ go }) {
-  const [agreed, setAgreed] = useState(true);
+  // Explicit opt-in: PDPA consent must never be pre-granted.
+  const [agreed, setAgreed] = useState(false);
 
   const handleContinue = () => {
     localStorage.setItem("pdpa_consent_granted", "true");
