@@ -509,7 +509,7 @@ export default function BillUpload({ token, go }) {
                   </div>
 
                   {/* Document iframe frame */}
-                  <div className="h-[280px] border border-slate-200 bg-slate-50 rounded-xl overflow-hidden shadow-inner mb-5 relative">
+                  <div className="h-[220px] sm:h-[280px] border border-slate-200 bg-slate-50 rounded-xl overflow-hidden shadow-inner mb-5 relative">
                     {files[selectedPreview]?.preview && (
                       <iframe
                         src={files[selectedPreview].preview}
@@ -664,7 +664,7 @@ export default function BillUpload({ token, go }) {
           </div>
 
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[620px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="pb-3 pl-2">Utility Provider</th>

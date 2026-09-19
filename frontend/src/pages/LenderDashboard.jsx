@@ -102,7 +102,7 @@ export default function LenderDashboard({ go }) {
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">{lender.institution}</h1>
             <p className="mt-1 text-sm text-slate-500">{lender.officer} · {lender.email}</p>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="rounded-full bg-blue-50 border border-blue-200 px-3 py-1.5 text-xs font-bold text-[#004fc5]">
               Min score {lender.min_score}
             </span>
@@ -201,7 +201,7 @@ export default function LenderDashboard({ go }) {
           <h2 className="text-base font-bold">Applicant book</h2>
           <p className="mt-0.5 text-xs text-slate-500">Hardcoded demo pipeline — click a row to query.</p>
           <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-left border-collapse">
+            <table className="w-full min-w-[620px] text-left border-collapse">
               <thead>
                 <tr className="border-b border-slate-100 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                   <th className="pb-3 pl-2">Applicant</th>

@@ -109,7 +109,7 @@ export default function ScoreCalibration({ go, token }) {
 
       {/* Center: Radial Dial Loader matching user's reference mockup */}
       <section className="relative z-10 flex flex-col items-center justify-center my-auto">
-        <div className="relative flex h-72 w-72 sm:h-80 sm:w-80 items-center justify-center">
+        <div className="relative flex h-[min(70vw,18rem)] w-[min(70vw,18rem)] sm:h-80 sm:w-80 items-center justify-center">
           {/* Radial Tick Lines */}
           <svg className="absolute inset-0 h-full w-full" viewBox="0 0 300 300">
             <defs>

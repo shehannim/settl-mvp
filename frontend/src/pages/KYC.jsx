@@ -74,7 +74,7 @@ export default function KYC({ token, go }) {
             <h2 className="mt-8 text-4xl lg:text-5xl font-extrabold leading-tight tracking-tight">Instant Verification.<br /><span className="text-teal-300">Zero Friction.</span></h2>
             <p className="mt-4 text-base lg:text-lg leading-relaxed text-blue-100">We use your NIC and verified email to authenticate your identity in seconds.</p>
           </div>
-          <div className="mt-8 grid grid-cols-3 gap-2.5 text-xs"><Step active label="01 Account" /><Step active={stage === "otp"} label="02 Verify" /><Step label="03 Profile" /></div>
+          <div className="mt-8 grid grid-cols-3 gap-1.5 sm:gap-2.5 text-xs"><Step active label="01 Account" /><Step active={stage === "otp"} label="02 Verify" /><Step label="03 Profile" /></div>
         </aside>
         <section className="flex min-h-[52vh] flex-col justify-between p-8 md:min-h-screen md:p-12">
           <button onClick={() => go("auth")} className="self-start text-xs font-medium text-slate-400 transition hover:text-[#004fc5]">← Back to sign in</button>
