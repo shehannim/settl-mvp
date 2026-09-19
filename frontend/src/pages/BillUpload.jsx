@@ -120,14 +120,12 @@ const DEFAULT_BILL_RECORDS = [
 ];
 
 export default function BillUpload({ token, go }) {
-  const [files, setFiles] = useState(() => {
-    const saved = localStorage.getItem("bills");
-    return saved ? JSON.parse(saved) : [];
-  });
+  // File objects + blob URLs live in memory only — they cannot survive
+  // JSON serialization, so the queue always starts fresh per session.
+  // Parsed results and the bill log persist separately below.
+  const [files, setFiles] = useState([]);
 
-  const [ocrResults, setOcrResults] = useState(() =>
-    JSON.parse(localStorage.getItem("ocrResults") || "[]")
-  );
+  const [ocrResults, setOcrResults] = useState([]);
 
   const [billRecords, setBillRecords] = useState(() => {
     const saved = localStorage.getItem("settl_bill_records");
@@ -141,14 +139,6 @@ export default function BillUpload({ token, go }) {
 
   const authToken = token || localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${authToken}` };
-
-  useEffect(() => {
-    localStorage.setItem("bills", JSON.stringify(files));
-  }, [files]);
-
-  useEffect(() => {
-    localStorage.setItem("ocrResults", JSON.stringify(ocrResults));
-  }, [ocrResults]);
 
   useEffect(() => {
     localStorage.setItem("settl_bill_records", JSON.stringify(billRecords));
@@ -183,7 +173,11 @@ export default function BillUpload({ token, go }) {
   };
 
   const removeFile = (index) => {
-    setFiles((prev) => prev.filter((_, i) => i !== index));
+    setFiles((prev) => {
+      const target = prev[index];
+      if (target?.preview) URL.revokeObjectURL(target.preview);
+      return prev.filter((_, i) => i !== index);
+    });
     setOcrResults((prev) => prev.filter((_, i) => i !== index));
     setSelectedPreview(0);
   };
