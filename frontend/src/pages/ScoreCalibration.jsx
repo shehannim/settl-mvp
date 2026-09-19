@@ -47,28 +47,14 @@ export default function ScoreCalibration({ go, token }) {
     };
   }, [authToken]);
 
-  // Smooth realistic progress animation
+  // Smooth realistic progress animation (pure — no side effects inside).
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        // If score is calculated and we reach or pass 100%, show 100% and pause for a full second before navigating
         if (scoreReadyRef.current) {
-          if (prev >= 100) {
-            clearInterval(interval);
-            setTimeout(() => {
-              go("dashboard");
-            }, 1000);
-            return 100;
-          }
+          if (prev >= 100) return 100;
           const next = prev + Math.floor(Math.random() * 4) + 2;
-          if (next >= 100) {
-            clearInterval(interval);
-            setTimeout(() => {
-              go("dashboard");
-            }, 1000);
-            return 100;
-          }
-          return next;
+          return next >= 100 ? 100 : next;
         }
 
         // If score computation is still waiting, smoothly decelerate towards 90%
@@ -87,7 +73,15 @@ export default function ScoreCalibration({ go, token }) {
     }, 80);
 
     return () => clearInterval(interval);
-  }, [go]);
+  }, []);
+
+  // Completion navigation lives here — once, with cleanup, so StrictMode
+  // double-invocation can't double-navigate or leak timers.
+  useEffect(() => {
+    if (!scoreReady || progress < 100) return undefined;
+    const timer = window.setTimeout(() => go("dashboard"), 1000);
+    return () => window.clearTimeout(timer);
+  }, [scoreReady, progress, go]);
 
   // Update status messages dynamically as progress advances
   useEffect(() => {
