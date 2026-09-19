@@ -54,15 +54,40 @@ async def compute_score(user: dict = Depends(get_current_user)):
             detail="HARD_FRAUD_FLAG: Profile has been flagged. Contact support."
         )
 
-    # ── PayPal income features — single fetch of sources, no N+1 ──
+    # ── Income features — pooled across ALL income sources (paypal, payoneer).
+    # Each row's statistics are weighted by its transaction count, which
+    # approximates the pooled estimate; income_source_count records how many
+    # independent streams contributed (matches training semantics where level
+    # and multiplicity are separate features — never sum the levels).
     sources_all = db.table("connected_sources").select("*").eq("user_id", user_id).execute()
     all_sources = sources_all.data or []
-    paypal_rows = [s for s in all_sources if s.get("source") == "paypal"]
+    income_rows = [s for s in all_sources if s.get("source") in ("paypal", "payoneer")]
 
-    if paypal_rows:
-        raw = paypal_rows[0].get("income_features") or {}
-        income_feats = json.loads(raw) if isinstance(raw, str) else dict(raw)
-        income_feats["income_source_count"] = len(all_sources)
+    INCOME_KEYS = (
+        "income_cv", "income_trend_slope", "income_gap_months",
+        "income_3m_avg", "income_6m_avg", "income_yoy_growth",
+    )
+
+    def _feat_dict(row):
+        raw = row.get("income_features") or {}
+        parsed = json.loads(raw) if isinstance(raw, str) else dict(raw)
+        return parsed
+
+    if income_rows:
+        weights = [max(int(r.get("transaction_count") or 0), 1) for r in income_rows]
+        total_w = sum(weights)
+        income_feats = {}
+        for key in INCOME_KEYS:
+            num, den = 0.0, 0
+            for row, w in zip(income_rows, weights):
+                val = _feat_dict(row).get(key)
+                try:
+                    num += float(val) * w
+                    den += w
+                except (TypeError, ValueError):
+                    continue
+            income_feats[key] = num / den if den else 0.0
+        income_feats["income_source_count"] = len(income_rows)
     else:
         income_feats = {
             "income_cv": 1.0, "income_trend_slope": 0.0, "income_gap_months": 12,
@@ -82,14 +107,16 @@ async def compute_score(user: dict = Depends(get_current_user)):
 
     # ── Footprint / history — use REAL months of history ──
     # date_range_months = len(monthly income) stored at connect time.
-    paypal_months = 0
-    if paypal_rows:
+    # Longest observed history across income sources wins (histories overlap
+    # in calendar time, so summing would double-count months).
+    income_months = 0
+    for row in income_rows:
         try:
-            paypal_months = int(paypal_rows[0].get("date_range_months") or 0)
+            income_months = max(income_months, int(row.get("date_range_months") or 0))
         except (TypeError, ValueError):
-            paypal_months = 0
+            continue
     bill_months = len(bills.data or [])
-    history_months = max(paypal_months, bill_months)
+    history_months = max(income_months, bill_months)
     digital_tenure = max(
         int(profile.get("digital_tenure_months") or 0),
         history_months,
