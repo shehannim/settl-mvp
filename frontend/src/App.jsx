@@ -19,6 +19,9 @@ import PayoneerDashboard from "./pages/PayoneerDashboard.jsx";
 import PayoneerSuccess from "./pages/PayoneerSuccess.jsx";
 import LenderLogin from "./pages/LenderLogin.jsx";
 import LenderDashboard from "./pages/LenderDashboard.jsx";
+import LinkedInConnect from "./pages/LinkedInConnect.jsx";
+import LinkedInCallback from "./pages/LinkedInCallback.jsx";
+import LinkedInSuccess from "./pages/LinkedInSuccess.jsx";
 
 const onboardingPages = new Set([
   "auth",
@@ -43,11 +46,15 @@ export default function App() {
     // Payoneer code land on the PayPal callback page (wrong endpoint/action).
     if (window.location.pathname.includes("/connect/payoneer/callback"))
       return "payoneer-callback";
+    if (window.location.pathname.includes("/connect/linkedin/callback"))
+      return "linkedin-callback";
     if (window.location.search.includes("code=")) return "paypal-callback";
     if (window.location.pathname.includes("/connect/payoneer/success"))
       return "payoneer-success";
     if (window.location.pathname.includes("/connect/paypal/success"))
       return "paypal-success";
+    if (window.location.pathname.includes("/connect/linkedin/success"))
+      return "linkedin-success";
     const savedPage = localStorage.getItem("current_page");
     if (savedPage) return savedPage;
     return localStorage.getItem("token") ? "dashboard" : "auth";
@@ -62,7 +69,10 @@ export default function App() {
     const isOAuthLanding =
       window.location.search.includes("code=") ||
       window.location.pathname.includes("/connect/paypal/success") ||
-      window.location.pathname.includes("/connect/payoneer/success");
+      window.location.pathname.includes("/connect/payoneer/success") ||
+      window.location.pathname.includes("/connect/linkedin/success") ||
+      window.location.pathname.includes("/connect/linkedin/callback") ||
+      window.location.pathname.includes("/connect/payoneer/callback");
     if (isOAuthLanding) {
       window.history.replaceState({}, "", "/");
       localStorage.removeItem("current_page");
@@ -309,6 +319,11 @@ export default function App() {
           <PayoneerCallback go={go} />
         )}
         {page === "payoneer-success" && <PayoneerSuccess go={go} />}
+        {page === "linkedin-connect" && <LinkedInConnect go={go} />}
+        {page === "linkedin-callback" && (
+          <LinkedInCallback go={go} />
+        )}
+        {page === "linkedin-success" && <LinkedInSuccess go={go} />}
         {page === "payoneer-dashboard" && <PayoneerDashboard go={go} />}
       </main>
     </div>

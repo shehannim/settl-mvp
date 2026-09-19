@@ -26,6 +26,19 @@ class Settings(BaseSettings):
     PAYPAL_REDIRECT_URI: str = "http://localhost:8000/api/connect/paypal/callback"
     PAYPAL_BASE_URL: str = "https://api-m.sandbox.paypal.com"
 
+    # LinkedIn Verified (identityMe). Self-serve tiers return name/email/photo;
+    # most-recent education needs Plus tier scope r_most_recent_education.
+    # Development tier only works for app admins — fine for demo, apply for
+    # Lite/Plus for production. Env-tunable scopes/paths like Payoneer.
+    LINKEDIN_CLIENT_ID: str = ""
+    LINKEDIN_CLIENT_SECRET: str = ""
+    LINKEDIN_REDIRECT_URI: str = "http://localhost:8000/api/connect/linkedin/callback"
+    LINKEDIN_AUTH_URL: str = "https://www.linkedin.com/oauth/v2/authorization"
+    LINKEDIN_TOKEN_PATH: str = "/oauth/v2/accessToken"
+    LINKEDIN_API_BASE: str = "https://api.linkedin.com"
+    LINKEDIN_IDENTITY_PATH: str = "/rest/identityMe"
+    LINKEDIN_API_VERSION: str = "202510"
+    LINKEDIN_SCOPES: str = "openid profile email"
     # Payoneer (partner OAuth — credentials issued via developer.payoneer.com)
     PAYONEER_CLIENT_ID: str = ""
     PAYONEER_CLIENT_SECRET: str = ""

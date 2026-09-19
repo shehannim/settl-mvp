@@ -16,6 +16,12 @@ from app.services.payoneer_service import (
     fetch_payoneer_transactions,
     fetch_payoneer_profile,
 )
+from app.services.linkedin_service import (
+    is_configured as is_linkedin_configured,
+    get_linkedin_auth_url,
+    exchange_linkedin_code,
+    fetch_linkedin_identity,
+)
 from app.services.normalisation_service import (
     get_usd_to_lkr_rate,
     build_monthly_income,
@@ -238,8 +244,84 @@ async def payoneer_callback(code: str, state: str):
         raise HTTPException(status_code=500, detail="Callback failed")
 
 
-# ✅ STEP 3 — Get connected sources (USED BY DASHBOARD)
-@router.get("/sources")
+# ── LINKEDIN VERIFIED (identity + education signal, not income) ──
+
+@router.get("/linkedin")
+async def connect_linkedin(user: dict = Depends(get_current_user)):
+    if not is_linkedin_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="LINKEDIN_NOT_CONFIGURED: app credentials missing. "
+                   "Register at developer.linkedin.com (Development tier works "
+                   "for app admins in demos).",
+        )
+    user_id = user["sub"]
+    state = create_oauth_state(user_id, purpose="linkedin_oauth")
+    return {"auth_url": get_linkedin_auth_url(state), "state": state}
+
+
+@router.get("/linkedin/callback")
+async def linkedin_callback(code: str, state: str):
+    user_id = decode_oauth_state(state, purpose="linkedin_oauth")
+
+    try:
+        tokens = await exchange_linkedin_code(code)
+        if not tokens:
+            raise HTTPException(status_code=400, detail="LinkedIn auth failed")
+
+        access_token = tokens.get("access_token")
+
+        identity = {}
+        try:
+            identity = await fetch_linkedin_identity(access_token) or {}
+        except Exception as e:
+            logger.warning("LinkedIn identity fetch failed: %s", e)
+
+        if not identity:
+            raise HTTPException(status_code=400, detail="LinkedIn identity failed")
+
+        db = get_supabase_admin()
+        existing = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
+
+        base_row = {
+            "user_id": user_id,
+            "source": "linkedin",
+            "account_name": identity.get("name", ""),
+            "transaction_count": 0,
+            "date_range_months": 0,
+            "income_features": {"linkedin": identity},
+            "connected_at": datetime.now(timezone.utc).isoformat(),
+            "access_token_hash": _hash_token(access_token) if access_token else "",
+        }
+        try:
+            db.table("connected_sources").upsert(
+                {**base_row, "is_primary": len(existing.data) == 0},
+                on_conflict="user_id,source",
+            ).execute()
+        except Exception:
+            db.table("connected_sources").upsert(
+                base_row, on_conflict="user_id,source").execute()
+
+        sources = db.table("connected_sources").select("source").eq(
+            "user_id", user_id).execute()
+        try:
+            db.table("users").update(
+                {"connected_source_count": len(sources.data)}
+            ).eq("id", user_id).execute()
+        except Exception as e:
+            logger.warning("User stats update failed: %s", e)
+
+        return RedirectResponse(
+            f"{settings.FRONTEND_URL}/connect/linkedin/success")
+
+    except HTTPException:
+        raise
+    except Exception:
+        logger.exception("LinkedIn callback failed")
+        raise HTTPException(status_code=500, detail="Callback failed")
+
+
+# ✅ STEP 3 — Get connected sources (USED BY DASHBOARD)@router.get("/sources")
 async def get_connected_sources(user: dict = Depends(get_current_user)):
     user_id = user["sub"]
 

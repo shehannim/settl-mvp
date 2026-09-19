@@ -132,13 +132,27 @@ async def compute_score(user: dict = Depends(get_current_user)):
         history_months,
     )
     sources = type("S", (), {"data": all_sources})()  # keep len(sources.data) shape below
+    # LinkedIn education → identity strength (display + confidence multiplier).
+    # Never lowers: missing LinkedIn must not punish thin files. The 28-feature
+    # model itself is untouched (new inputs need a full retrain — Phase 2).
+    identity_consistency = profile.get("identity_consistency_score", 0.5)
+    for row in all_sources:
+        if row.get("source") == "linkedin":
+            try:
+                from app.services.linkedin_service import education_identity_boost
+                stored = row.get("income_features") or {}
+                stored = json.loads(stored) if isinstance(stored, str) else dict(stored)
+                identity_consistency = education_identity_boost(
+                    stored.get("linkedin", stored), identity_consistency)
+            except Exception:
+                continue
     footprint_feats = compute_footprint_features(
         {
             "connected_source_count": len(all_sources),
             "digital_tenure_months": digital_tenure,
             "business_continuity": min(bill_months / 12.0, 1.0),
             "kyc_verified": profile.get("kyc_verified", False),
-            "identity_consistency_score": profile.get("identity_consistency_score", 0.5),
+            "identity_consistency_score": identity_consistency,
         },
         fraud_flags=profile.get("fraud_flag_count", 0),
     )
