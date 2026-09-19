@@ -38,6 +38,11 @@ export default function App() {
     () => localStorage.getItem("userId") || "",
   );
   const [page, setPage] = useState(() => {
+    // Provider callbacks are discriminated by path: a bare ?code= belongs to
+    // PayPal; /connect/payoneer/callback?... belongs to Payoneer. Never let a
+    // Payoneer code land on the PayPal callback page (wrong endpoint/action).
+    if (window.location.pathname.includes("/connect/payoneer/callback"))
+      return "payoneer-callback";
     if (window.location.search.includes("code=")) return "paypal-callback";
     if (window.location.pathname.includes("/connect/payoneer/success"))
       return "payoneer-success";
