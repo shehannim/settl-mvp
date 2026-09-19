@@ -20,20 +20,40 @@ async def register(body: RegisterRequest):
 
     user_id = str(uuid.uuid4())
     year = datetime.now().year
-    settl_id = f"STL-{year}-{user_id[:6].upper()}"
+    password_hash = hash_password(body.password)
 
-    db.table("users").insert({
-        "id": user_id,
-        "settl_id": settl_id,
-        "email": email,
-        "full_name": body.full_name.strip(),
-        "password_hash": hash_password(body.password),
-        "kyc_verified": False,
-        "otp_verified": False,
-        "connected_source_count": 0,
-        "identity_consistency_score": 0.5,
-        "fraud_flag_count": 0,
-    }).execute()
+    # 6-hex suffix has 16M combinations — collisions are theoretical, but a
+    # clash must never 500 a registration. Retry with a fresh suffix.
+    settl_id = None
+    last_error: Exception | None = None
+    for _ in range(5):
+        candidate = f"STL-{year}-{uuid.uuid4().hex[:6].upper()}"
+        try:
+            db.table("users").insert({
+                "id": user_id,
+                "settl_id": candidate,
+                "email": email,
+                "full_name": body.full_name.strip(),
+                "password_hash": password_hash,
+                "kyc_verified": False,
+                "otp_verified": False,
+                "connected_source_count": 0,
+                "identity_consistency_score": 0.5,
+                "fraud_flag_count": 0,
+            }).execute()
+            settl_id = candidate
+            break
+        except Exception as e:
+            last_error = e
+            # Only retry unique-violation on settl_id; anything else aborts.
+            if "settl_id" not in str(e).lower() and "duplicate" not in str(e).lower() \
+                    and "unique" not in str(e).lower():
+                raise
+    if settl_id is None:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Could not allocate a Settl ID, please retry. ({last_error})",
+        )
 
     token = create_access_token({"sub": user_id, "email": email}, role="user")
     return TokenResponse(access_token=token, user_id=user_id, role="user")
