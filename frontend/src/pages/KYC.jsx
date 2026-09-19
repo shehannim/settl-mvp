@@ -5,9 +5,11 @@ import OtpInput from "../components/OtpInput.jsx";
 import logo from "../assets/Settl Logo.png";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
-const EMAILJS_SERVICE_ID = "service_6uua9b7";
-const EMAILJS_TEMPLATE_ID = "template_ocn365k";
-const EMAILJS_PUBLIC_KEY = "_XIs6uup2N4CsgCV8";
+// EmailJS keys from env. Hardcoded fallbacks are the previously-exposed demo
+// values — rotate them in the EmailJS dashboard, then drop the fallbacks.
+const EMAILJS_SERVICE_ID = import.meta.env.VITE_EMAILJS_SERVICE_ID || "service_6uua9b7";
+const EMAILJS_TEMPLATE_ID = import.meta.env.VITE_EMAILJS_TEMPLATE_ID || "template_ocn365k";
+const EMAILJS_PUBLIC_KEY = import.meta.env.VITE_EMAILJS_PUBLIC_KEY || "_XIs6uup2N4CsgCV8";
 const DEMO_MODE = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === "true";
 const DEMO_OTP = "000000";
 
