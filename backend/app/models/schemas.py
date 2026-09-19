@@ -1,5 +1,5 @@
-from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from pydantic import BaseModel, EmailStr, Field, field_validator
+from typing import Optional, List, Literal
 from datetime import datetime
 from enum import Enum
 
@@ -126,6 +126,23 @@ class LenderScoreResponse(BaseModel):
     scored_at: datetime
 
 
+# Canonical repayment outcomes shared by the lender API and retraining.
+# Unknown strings are rejected at write time so rows can never silently
+# vanish between /api/lender/outcome and scripts/retrain_local.py.
+RepaymentStatus = Literal[
+    "pending", "on_time", "repaid", "late", "late_<30", "late_30", "defaulted",
+]
+
+REPAYMENT_LABELS = {
+    "on_time": 1,
+    "repaid": 1,
+    "late": 0,
+    "late_<30": 0,
+    "late_30": 0,
+    "defaulted": 0,
+}
+
+
 class LoanOutcomeRequest(BaseModel):
     user_id: str
     score_at_decision: int
@@ -133,7 +150,12 @@ class LoanOutcomeRequest(BaseModel):
     model_version: str
     decision: str  # approved | declined | conditional
     loan_amount_lkr: Optional[int] = None
-    repayment_status: Optional[str] = "pending"
+    repayment_status: RepaymentStatus = "pending"
+
+    @field_validator("repayment_status", mode="before")
+    @classmethod
+    def _normalise_status(cls, v):
+        return str(v or "pending").strip().lower()
 
 
 class LenderLoginRequest(BaseModel):

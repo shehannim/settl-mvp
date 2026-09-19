@@ -61,14 +61,11 @@ MIN_PRECISION = 0.70
 DEFAULT_MIN_LABELS = 500  # docs 012: minimum real-data threshold before prod
 
 # repayment_status -> label. 'pending' has no outcome yet and is excluded.
-LABEL_MAP = {
-    "on_time": 1,
-    "repaid": 1,
-    "late": 0,
-    "late_<30": 0,
-    "late_30": 0,
-    "defaulted": 0,
-}
+# Canonical set lives in app.models.schemas (shared with the lender API) so
+# rows can never silently vanish between write time and train time.
+from app.models.schemas import REPAYMENT_LABELS
+
+LABEL_MAP = REPAYMENT_LABELS
 
 
 def fetch_labelled_from_db() -> pd.DataFrame:
