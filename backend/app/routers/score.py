@@ -95,12 +95,22 @@ async def compute_score(user: dict = Depends(get_current_user)):
             "income_6m_avg": 0.0, "income_yoy_growth": 0.0,
         }
 
-    # ── Payment features ──
+    # ── Payment features — verified bills preferred; unreviewed pending
+    # bills still count but their completeness is discounted (unconfirmed
+    # OCR is weaker evidence than user-verified fields).
     bills = db.table("verified_bills").select(
         "payment_on_time, confirmed_at"
     ).eq("user_id", user_id).execute()
+    using_pending = not bills.data
+    if using_pending:
+        bills = db.table("pending_bills").select(
+            "payment_on_time, created_at"
+        ).eq("user_id", user_id).execute()
 
     payment_feats = compute_payment_features(bills.data)
+    if using_pending:
+        payment_feats["bill_ontime_rate"] = payment_feats.get("bill_ontime_rate", 0.5) * 0.7
+        payment_feats["payment_regularity"] = payment_feats.get("payment_regularity", 0.5) * 0.7
 
     # ── Platform features ──
     platform_feats = compute_platform_features(all_sources)

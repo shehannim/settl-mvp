@@ -8,7 +8,9 @@ from app.services.ocr_service import (
     get_pdf_metadata,
     is_payoneer_statement,
     parse_payoneer_statement,
+    validate_payment_on_time,
 )
+from app.models.schemas import OCRReviewRequest
 from app.services.normalisation_service import (
     get_usd_to_lkr_rate,
     build_monthly_income_async,
@@ -437,4 +439,75 @@ async def upload_payoneer_statement(
         "account_name": parsed["account_name"],
         "status": "verified",
         "metadata": metadata,
+    }
+
+
+@router.post("/ocr-review")
+async def review_ocr_bill(
+    body: OCRReviewRequest,
+    user: dict = Depends(get_current_user),
+):
+    """User confirms/corrects OCR fields → bill moves pending → verified.
+
+    Only verified bills feed scoring payment features. Bills never reviewed
+    still count via the pending fallback in score compute (penalised).
+    """
+    user_id = user["sub"]
+    db = get_supabase_admin()
+
+    pending = db.table("pending_bills").select("*").eq("id", body.bill_id).eq(
+        "user_id", user_id).execute()
+    if not pending.data:
+        raise HTTPException(status_code=404, detail="Pending bill not found")
+
+    bill = pending.data[0]
+    fields = bill.get("fields") or []
+    if isinstance(fields, dict):
+        fields = [{"field_name": k, "extracted_value": v} for k, v in fields.items()]
+
+    corrections = body.corrected_fields or {}
+    for field in fields:
+        name = field.get("field_name")
+        if name in corrections:
+            field["extracted_value"] = corrections[name]
+            field["user_verified"] = True
+            field["confidence"] = 1.0
+
+    on_time = validate_payment_on_time([
+        {"field_name": f.get("field_name"), "extracted_value": f.get("extracted_value")}
+        for f in fields if isinstance(f, dict)
+    ])
+
+    verified_row = {
+        "id": bill["id"],
+        "user_id": user_id,
+        "storage_path": bill.get("storage_path"),
+        "biller_detected": bill.get("biller_detected"),
+        "fields": fields,
+        "overall_confidence": bill.get("overall_confidence"),
+        "identity_match_score": bill.get("identity_match_score"),
+        "payment_on_time": on_time,
+        "confirmed_at": datetime.now(timezone.utc).isoformat(),
+    }
+    if bill.get("metadata") is not None:
+        try:
+            db.table("verified_bills").upsert(
+                {**verified_row, "metadata": bill["metadata"]}).execute()
+        except Exception as e:
+            logger.warning("verified_bills metadata column missing: %s", e)
+            db.table("verified_bills").upsert(verified_row).execute()
+    else:
+        db.table("verified_bills").upsert(verified_row).execute()
+
+    try:
+        db.table("pending_bills").delete().eq("id", bill["id"]).execute()
+    except Exception as e:
+        logger.warning("pending_bills cleanup failed: %s", e)
+
+    return {
+        "bill_id": bill["id"],
+        "biller_detected": bill.get("biller_detected"),
+        "fields": fields,
+        "payment_on_time": on_time,
+        "status": "verified",
     }
