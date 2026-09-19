@@ -164,11 +164,18 @@ async def upload_utility_bill(
     db = get_supabase_admin()
 
     # Duplicate detection — same user uploading the same file twice.
+    # file_sha256 is unique per (user_id); re-uploads get 409, not a new row.
     try:
-        dup = db.table("pending_bills").select("id").eq("user_id", user_id).execute()
-        # storage_path embeds bill_id so we check verified bills by hash via fields is overkill;
-        # at minimum prevent rapid re-upload storms by checking recent pending count.
-        _ = dup
+        dup = db.table("pending_bills").select("id").eq(
+            "user_id", user_id).eq("file_sha256", file_sha256).execute()
+        if dup.data:
+            raise HTTPException(
+                status_code=409,
+                detail="DUPLICATE_BILL: this file was already uploaded "
+                       f"(bill_id={dup.data[0]['id']}).",
+            )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.warning("Duplicate check skipped: %s", e)
 
@@ -236,14 +243,26 @@ async def upload_utility_bill(
         "identity_match_score": identity_match_score,
         "payment_on_time": ocr_result.get("payment_on_time"),
         "status": review_status,
+        "file_sha256": file_sha256,
+        "metadata": metadata,
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    # metadata column exists after the schema migration; older DBs lack it.
-    try:
-        db.table("pending_bills").upsert({**pending_row, "metadata": metadata}).execute()
-    except Exception as e:
-        logger.warning("pending_bills metadata column missing, storing without it: %s", e)
-        db.table("pending_bills").upsert(pending_row).execute()
+    # metadata/file_sha256 columns exist after the schema migration; older
+    # DBs lack them — strip unknown keys instead of 500ing the upload.
+    for _attempt in range(2):
+        try:
+            db.table("pending_bills").upsert(pending_row).execute()
+            break
+        except Exception as e:
+            if "metadata" in pending_row:
+                del pending_row["metadata"]
+                logger.warning("pending_bills metadata column missing, retrying: %s", e)
+                continue
+            if "file_sha256" in pending_row:
+                del pending_row["file_sha256"]
+                logger.warning("pending_bills file_sha256 column missing, retrying: %s", e)
+                continue
+            raise
 
     # PROFILE VERIFICATION SCORE UPDATE — tolerant of older DBs missing the
     # utility-bill columns (see supabase_schema.sql migration at bottom).
