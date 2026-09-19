@@ -1,23 +1,23 @@
 import { useState } from "react";
 
-const API = "https://settl-backend-s3rc.onrender.com";
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 export default function PayPalConnect() {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   const handleConnect = async () => {
     try {
       setLoading(true);
+      setError("");
 
       const token = localStorage.getItem("token");
 
       if (!token) {
-        alert("⚠️ Please log in first");
+        setError("Please log in first.");
         setLoading(false);
         return;
       }
-
-      console.log("Token:", token);
 
       const res = await fetch(
         `${API}/api/connect/paypal`,
@@ -30,19 +30,16 @@ export default function PayPalConnect() {
       );
 
       if (res.status === 401) {
-        alert("❌ Unauthorized. Please login again.");
+        setError("Session expired. Please log in again.");
         setLoading(false);
         return;
       }
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error("Backend error:", text);
         throw new Error("Failed to initiate PayPal connection");
       }
 
       const data = await res.json();
-      console.log("Auth URL:", data.auth_url);
 
       if (!data.auth_url) {
         throw new Error("No auth URL received from backend");
@@ -50,9 +47,8 @@ export default function PayPalConnect() {
 
       window.location.href = data.auth_url;
 
-    } catch (error) {
-      console.error("PayPal connect error:", error);
-      alert("❌ Failed to connect PayPal. Check console.");
+    } catch (err) {
+      setError("Failed to connect PayPal. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -83,6 +79,12 @@ export default function PayPalConnect() {
             <span>✕</span> No ability to make payments or transfers
           </div>
         </div>
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+            {error}
+          </div>
+        )}
 
         <button
           onClick={handleConnect}

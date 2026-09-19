@@ -5,16 +5,18 @@ const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender
 export default function PayoneerConnect({ go }) {
   const [loading, setLoading] = useState(false);
   const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
 
   const handleConnect = async () => {
     try {
       setLoading(true);
       setNotice("");
+      setError("");
 
       const token = localStorage.getItem("token");
 
       if (!token) {
-        alert("⚠️ Please log in first");
+        setError("Please log in first.");
         setLoading(false);
         return;
       }
@@ -25,7 +27,7 @@ export default function PayoneerConnect({ go }) {
       });
 
       if (res.status === 401) {
-        alert("❌ Unauthorized. Please login again.");
+        setError("Session expired. Please log in again.");
         setLoading(false);
         return;
       }
@@ -40,8 +42,6 @@ export default function PayoneerConnect({ go }) {
       }
 
       if (!res.ok) {
-        const text = await res.text();
-        console.error("Backend error:", text);
         throw new Error("Failed to initiate Payoneer connection");
       }
 
@@ -52,9 +52,8 @@ export default function PayoneerConnect({ go }) {
       }
 
       window.location.href = data.auth_url;
-    } catch (error) {
-      console.error("Payoneer connect error:", error);
-      alert("❌ Failed to connect Payoneer. Check console.");
+    } catch (err) {
+      setError("Failed to connect Payoneer. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -95,6 +94,12 @@ export default function PayoneerConnect({ go }) {
             >
               Go to statement upload →
             </button>
+          </div>
+        )}
+
+        {error && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
+            {error}
           </div>
         )}
 

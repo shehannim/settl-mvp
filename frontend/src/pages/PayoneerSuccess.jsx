@@ -4,12 +4,16 @@ export default function PayoneerSuccess({ go }) {
   const [showCheck, setShowCheck] = useState(false);
 
   useEffect(() => {
-    // animate check after short delay
-    setTimeout(() => setShowCheck(true), 300);
-
-    // auto redirect to dashboard
-    setTimeout(() => go("payoneer-dashboard"), 2500);
-  }, []);
+    // animate check after short delay, then auto redirect to dashboard.
+    // Timers are tracked and cleared on unmount so leaving early can't
+    // navigate a dead screen or leak handles.
+    const checkTimer = window.setTimeout(() => setShowCheck(true), 300);
+    const navTimer = window.setTimeout(() => go("payoneer-dashboard"), 2500);
+    return () => {
+      window.clearTimeout(checkTimer);
+      window.clearTimeout(navTimer);
+    };
+  }, [go]);
 
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-950 text-white">

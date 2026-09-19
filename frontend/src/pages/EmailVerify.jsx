@@ -9,6 +9,7 @@ export default function EmailVerify({ go, onVerified }) {
   const email = localStorage.getItem("email") || "your registered email";
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
 
   const handleVerify = async () => {
@@ -37,7 +38,7 @@ export default function EmailVerify({ go, onVerified }) {
 
   const handleResend = () => {
     setError("");
-    alert(`Verification code re-sent to ${email}`);
+    setNotice(`Verification code re-sent to ${email}.`);
   };
 
   return (
@@ -131,6 +132,12 @@ export default function EmailVerify({ go, onVerified }) {
             {error && (
               <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-700">
                 {error}
+              </p>
+            )}
+
+            {notice && !error && (
+              <p role="status" className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm font-medium text-emerald-700">
+                {notice}
               </p>
             )}
 

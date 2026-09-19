@@ -300,13 +300,13 @@ export default function App() {
         {page === "bill-upload" && <BillUpload token={token} go={go} />}
         {page === "paypal-connect" && <PayPalConnect go={go} />}
         {page === "paypal-callback" && (
-          <PayPalCallback go={go} setUserId={setUserId} />
+          <PayPalCallback go={go} />
         )}
         {page === "paypal-success" && <PayPalSuccess go={go} />}
         {page === "paypal-dashboard" && <PayPalDashboard go={go} />}
         {page === "payoneer-connect" && <PayoneerConnect go={go} />}
         {page === "payoneer-callback" && (
-          <PayoneerCallback go={go} setUserId={setUserId} />
+          <PayoneerCallback go={go} />
         )}
         {page === "payoneer-success" && <PayoneerSuccess go={go} />}
         {page === "payoneer-dashboard" && <PayoneerDashboard go={go} />}
