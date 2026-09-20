@@ -13,9 +13,9 @@ Usage (backend running + Supabase env available):
     python scripts/seed_demo_users.py [--api http://localhost:8000] [--dry-run]
 
 Credentials (all three): password Demo@1234
-    kasun.f.demo@settl.local  (struggling)
-    sanduni.p.demo@settl.local (stable)
-    ayesha.r.demo@settl.local  (exceptional)
+    kasun.f.demo@settl-demo.com  (struggling)
+    sanduni.p.demo@settl-demo.com (stable)
+    ayesha.r.demo@settl-demo.com  (exceptional)
 """
 import argparse
 import os
@@ -31,7 +31,7 @@ PASSWORD = "Demo@1234"
 PERSONAS = [
     {
         "key": "struggling",
-        "email": "kasun.f.demo@settl.local",
+        "email": "kasun.f.demo@settl-demo.com",
         "full_name": "Kasun Fernando",
         "nic_number": "200112345678",
         "identity_consistency_score": 0.6,
@@ -51,7 +51,7 @@ PERSONAS = [
     },
     {
         "key": "stable",
-        "email": "sanduni.p.demo@settl.local",
+        "email": "sanduni.p.demo@settl-demo.com",
         "full_name": "Sanduni Perera",
         "nic_number": "199412345678",
         "identity_consistency_score": 0.8,
@@ -78,7 +78,7 @@ PERSONAS = [
     },
     {
         "key": "exceptional",
-        "email": "ayesha.r.demo@settl.local",
+        "email": "ayesha.r.demo@settl-demo.com",
         "full_name": "Ayesha Rahman",
         "nic_number": "199012345678",
         "identity_consistency_score": 0.97,

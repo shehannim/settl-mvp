@@ -15,7 +15,7 @@ export const DEMO_PROFILES = [
     identity: {
       name: "Kasun Fernando",
       settl_id: "STL-2026-DM01",
-      email: "kasun.f.demo@settl.local",
+      email: "kasun.f.demo@settl-demo.com",
       age: 24,
       city: "Matara",
       education: "NVQ Level 4 — Graphic Design, DTET",
@@ -112,7 +112,7 @@ export const DEMO_PROFILES = [
     identity: {
       name: "Sanduni Perera",
       settl_id: "STL-2026-DM02",
-      email: "sanduni.p.demo@settl.local",
+      email: "sanduni.p.demo@settl-demo.com",
       age: 31,
       city: "Colombo (Nugegoda)",
       education: "BSc IT, SLIIT",
@@ -220,7 +220,7 @@ export const DEMO_PROFILES = [
     identity: {
       name: "Ayesha Rahman",
       settl_id: "STL-2026-DM03",
-      email: "ayesha.r.demo@settl.local",
+      email: "ayesha.r.demo@settl-demo.com",
       age: 35,
       city: "Kandy",
       education: "BSc Computer Science, University of Colombo; AWS Solutions Architect",
