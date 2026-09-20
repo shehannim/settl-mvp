@@ -39,21 +39,27 @@ export default function PayoneerCallback({ go }) {
       return;
     }
 
+    // Stay in-app: ask the backend for JSON (it only 302-redirects
+    // real browser navigations, so fetch never leaves this site).
+    let timer;
     fetch(
-      `${API_URL}/api/connect/payoneer/callback?code=${code}&state=${state}`
+      `${API_URL}/api/connect/payoneer/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`,
+      { headers: { Accept: "application/json" } }
     )
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          throw new Error("Payoneer callback failed");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "Payoneer callback failed");
         }
         setStatus("success");
-        setTimeout(() => go && go("payoneer-success"), 800);
+        timer = window.setTimeout(() => go && go("payoneer-success"), 800);
       })
       .catch((err) => {
         console.error(err);
         setStatus("error");
         setError("Failed to establish secure connection with Payoneer.");
       });
+    return () => window.clearTimeout(timer);
   }, [go]);
 
   return (

@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 from typing import Optional
+from urllib.parse import urlparse
 from app.core.security import get_current_user, create_oauth_state, decode_oauth_state
 from app.core.database import get_supabase_admin
 from app.core.config import get_settings
@@ -45,9 +46,63 @@ def _hash_token(token: str) -> str:
     return hashlib.sha256(token.encode()).hexdigest()
 
 
+def _is_paypal_configured() -> bool:
+    return bool(settings.PAYPAL_CLIENT_ID and settings.PAYPAL_CLIENT_SECRET)
+
+
+def _allowed_frontend_bases() -> list:
+    """FRONTEND_URL may be a single URL or comma-separated allowlist."""
+    raw = (settings.FRONTEND_URL or "").strip()
+    bases = [b.strip().rstrip("/") for b in raw.split(",") if b.strip()]
+    for local in ("http://localhost:5173", "http://127.0.0.1:5173"):
+        if local not in bases:
+            bases.append(local)
+    return bases
+
+
+def _resolve_frontend_base(request: Request) -> str:
+    """Never bounce the user to a hardcoded localhost when deployed.
+
+    Prefers the calling page's Origin/Referer when it is allowlisted,
+    otherwise falls back to the first configured FRONTEND_URL.
+    """
+    allowed = _allowed_frontend_bases()
+    for header in (request.headers.get("origin"), request.headers.get("referer")):
+        if not header:
+            continue
+        try:
+            parsed = urlparse(header)
+            base = f"{parsed.scheme}://{parsed.netloc}".rstrip("/")
+        except Exception:
+            continue
+        if base in allowed:
+            return base
+    return allowed[0] if allowed else settings.FRONTEND_URL.rstrip("/")
+
+
+def _wants_json(request: Request) -> bool:
+    accept = (request.headers.get("accept") or "").lower()
+    sec_fetch = (request.headers.get("sec-fetch-mode") or "").lower()
+    return "application/json" in accept or sec_fetch == "cors"
+
+
+def _callback_result(request: Request, success_path: str):
+    """SPA fetch callers stay in-app (JSON); browser navigations redirect."""
+    base = _resolve_frontend_base(request)
+    if _wants_json(request):
+        return {"status": "success", "redirect": f"{base}{success_path}"}
+    return RedirectResponse(f"{base}{success_path}")
+
+
 # ✅ STEP 1 — Start OAuth
 @router.get("/paypal")
 async def connect_paypal(user: dict = Depends(get_current_user)):
+    if not _is_paypal_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="PAYPAL_NOT_CONFIGURED: app credentials missing. "
+                   "Set PAYPAL_CLIENT_ID/SECRET on the backend.",
+        )
     user_id = user["sub"]
     state = create_oauth_state(user_id)
     auth_url = get_paypal_auth_url(state)
@@ -56,7 +111,7 @@ async def connect_paypal(user: dict = Depends(get_current_user)):
 
 # ✅ STEP 2 — Callback
 @router.get("/paypal/callback")
-async def paypal_callback(code: str, state: str):
+async def paypal_callback(request: Request, code: str, state: str):
 
     # Stateless signed state — no fallback to another user.
     user_id = decode_oauth_state(state)
@@ -138,8 +193,8 @@ async def paypal_callback(code: str, state: str):
         except Exception as e:
             logger.warning("User stats update failed: %s", e)
 
-        # ✅ Redirect to frontend success page
-        return RedirectResponse(f"{settings.FRONTEND_URL}/connect/paypal/success")
+        # ✅ Back to the frontend that started the flow (JSON for SPA fetch)
+        return _callback_result(request, "/connect/paypal/success")
 
     except HTTPException:
         raise
@@ -164,7 +219,7 @@ async def connect_payoneer(user: dict = Depends(get_current_user)):
 
 
 @router.get("/payoneer/callback")
-async def payoneer_callback(code: str, state: str):
+async def payoneer_callback(request: Request, code: str, state: str):
     # Purpose-bound state — a PayPal state is rejected here.
     user_id = decode_oauth_state(state, purpose="payoneer_oauth")
 
@@ -237,7 +292,7 @@ async def payoneer_callback(code: str, state: str):
         except Exception as e:
             logger.warning("User stats update failed: %s", e)
 
-        return RedirectResponse(f"{settings.FRONTEND_URL}/connect/payoneer/success")
+        return _callback_result(request, "/connect/payoneer/success")
 
     except HTTPException:
         raise
@@ -263,7 +318,7 @@ async def connect_linkedin(user: dict = Depends(get_current_user)):
 
 
 @router.get("/linkedin/callback")
-async def linkedin_callback(code: str, state: str):
+async def linkedin_callback(request: Request, code: str, state: str):
     user_id = decode_oauth_state(state, purpose="linkedin_oauth")
 
     try:
@@ -313,8 +368,7 @@ async def linkedin_callback(code: str, state: str):
         except Exception as e:
             logger.warning("User stats update failed: %s", e)
 
-        return RedirectResponse(
-            f"{settings.FRONTEND_URL}/connect/linkedin/success")
+        return _callback_result(request, "/connect/linkedin/success")
 
     except HTTPException:
         raise

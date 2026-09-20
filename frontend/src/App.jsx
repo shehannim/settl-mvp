@@ -45,20 +45,23 @@ export default function App() {
     () => localStorage.getItem("userId") || "",
   );
   const [page, setPage] = useState(() => {
-    // Provider callbacks are discriminated by path: a bare ?code= belongs to
-    // PayPal; /connect/payoneer/callback?... belongs to Payoneer. Never let a
-    // Payoneer code land on the PayPal callback page (wrong endpoint/action).
-    if (window.location.pathname.includes("/connect/payoneer/callback"))
-      return "payoneer-callback";
-    if (window.location.pathname.includes("/connect/linkedin/callback"))
-      return "linkedin-callback";
-    if (window.location.search.includes("code=")) return "paypal-callback";
+    // Success pages first — they carry no ?code=, but check them before
+    // the bare-code fallback so a stray query can never misroute them.
+    // Callback pages are discriminated by path; only a bare ?code= with
+    // no provider path belongs to PayPal.
     if (window.location.pathname.includes("/connect/payoneer/success"))
       return "payoneer-success";
     if (window.location.pathname.includes("/connect/paypal/success"))
       return "paypal-success";
     if (window.location.pathname.includes("/connect/linkedin/success"))
       return "linkedin-success";
+    if (window.location.pathname.includes("/connect/payoneer/callback"))
+      return "payoneer-callback";
+    if (window.location.pathname.includes("/connect/linkedin/callback"))
+      return "linkedin-callback";
+    if (window.location.pathname.includes("/connect/paypal/callback"))
+      return "paypal-callback";
+    if (window.location.search.includes("code=")) return "paypal-callback";
     const savedPage = localStorage.getItem("current_page");
     if (savedPage) return savedPage;
     return localStorage.getItem("token") ? "dashboard" : "auth";
@@ -73,6 +76,7 @@ export default function App() {
     const isOAuthLanding =
       window.location.search.includes("code=") ||
       window.location.pathname.includes("/connect/paypal/success") ||
+      window.location.pathname.includes("/connect/paypal/callback") ||
       window.location.pathname.includes("/connect/payoneer/success") ||
       window.location.pathname.includes("/connect/linkedin/success") ||
       window.location.pathname.includes("/connect/linkedin/callback") ||

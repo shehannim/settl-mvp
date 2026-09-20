@@ -46,7 +46,8 @@ export default function LinkedInConnect({ go }) {
 
       const data = await res.json();
 
-      if (!data.auth_url) {
+      // Only leave the site for a real provider URL.
+      if (!data.auth_url || !/^https?:\/\//i.test(data.auth_url)) {
         throw new Error("No auth URL received from backend");
       }
 
@@ -103,6 +104,13 @@ export default function LinkedInConnect({ go }) {
           className="w-full bg-[#0A66C2] hover:bg-[#084e96] disabled:bg-gray-400 text-white rounded-xl py-3.5 text-sm font-medium transition-colors"
         >
           {loading ? "Connecting..." : "Continue with LinkedIn"}
+        </button>
+
+        <button
+          onClick={() => go && go("income-streams")}
+          className="mt-3 w-full text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-colors py-2"
+        >
+          ← Back to Income Streams
         </button>
 
         <p className="text-xs text-gray-400 text-center mt-3 leading-relaxed">

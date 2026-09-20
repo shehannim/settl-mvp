@@ -2,14 +2,16 @@ import { useState } from "react";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
-export default function PayPalConnect() {
+export default function PayPalConnect({ go }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
 
   const handleConnect = async () => {
     try {
       setLoading(true);
       setError("");
+      setNotice("");
 
       const token = localStorage.getItem("token");
 
@@ -35,13 +37,23 @@ export default function PayPalConnect() {
         return;
       }
 
+      // Backend not configured → stay in-app, never bounce to a broken PayPal URL.
+      if (res.status === 503) {
+        setNotice(
+          "Direct PayPal linking isn't enabled on this deployment yet. Connect Payoneer, Upwork or Fiverr instead — they feed the same income engine."
+        );
+        setLoading(false);
+        return;
+      }
+
       if (!res.ok) {
         throw new Error("Failed to initiate PayPal connection");
       }
 
       const data = await res.json();
 
-      if (!data.auth_url) {
+      // Only leave the site for a real provider URL.
+      if (!data.auth_url || !/^https?:\/\//i.test(data.auth_url)) {
         throw new Error("No auth URL received from backend");
       }
 
@@ -80,6 +92,18 @@ export default function PayPalConnect() {
           </div>
         </div>
 
+        {notice && (
+          <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-xs leading-relaxed">
+            {notice}
+            <button
+              onClick={() => go && go("income-streams")}
+              className="block mt-2 font-bold underline underline-offset-2"
+            >
+              Back to Income Streams →
+            </button>
+          </div>
+        )}
+
         {error && (
           <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-700 text-xs font-semibold">
             {error}
@@ -93,6 +117,13 @@ export default function PayPalConnect() {
         >
           {loading ? "Connecting..." : "Continue with PayPal"}
           {!loading && <PayPalIcon />}
+        </button>
+
+        <button
+          onClick={() => go && go("income-streams")}
+          className="mt-3 w-full text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-800 transition-colors py-2"
+        >
+          ← Back to Income Streams
         </button>
 
         <p className="text-xs text-gray-400 text-center mt-3 leading-relaxed">

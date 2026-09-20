@@ -40,26 +40,27 @@ export default function PayPalCallback({ go }) {
       return;
     }
 
-    // ✅ Call YOUR backend callback
+    // Stay in-app: ask the backend for JSON (it only 302-redirects
+    // real browser navigations, so fetch never leaves this site).
+    let timer;
     fetch(
-      `${API_URL}/api/connect/paypal/callback?code=${code}&state=${state}`
+      `${API_URL}/api/connect/paypal/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`,
+      { headers: { Accept: "application/json" } }
     )
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          throw new Error("PayPal callback failed");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "PayPal callback failed");
         }
-
-        // ✅ IMPORTANT: backend redirects, no JSON needed
         setStatus("success");
-
-        // ✅ Redirect to animated success screen
-        setTimeout(() => go && go("paypal-success"), 800);
+        timer = window.setTimeout(() => go && go("paypal-success"), 800);
       })
       .catch((err) => {
         console.error(err);
         setStatus("error");
         setError("Failed to establish secure connection with PayPal.");
       });
+    return () => window.clearTimeout(timer);
   }, [go]);
 
   return (

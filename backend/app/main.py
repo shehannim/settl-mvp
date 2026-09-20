@@ -34,9 +34,12 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# ✅ CORS — restrict to configured frontend in production.
-# FRONTEND_URL covers local dev (5173) and prod (set via env).
-_cors_origins = list({settings.FRONTEND_URL, "http://localhost:5173", "http://127.0.0.1:5173"})
+# ✅ CORS — FRONTEND_URL may be a comma-separated allowlist
+# (e.g. "https://settl.vercel.app,https://preview.vercel.app").
+_configured = [o.strip().rstrip("/") for o in (settings.FRONTEND_URL or "").split(",") if o.strip()]
+_cors_origins = list({_configured[0] if _configured else "http://localhost:5173",
+                      *_configured,
+                      "http://localhost:5173", "http://127.0.0.1:5173"})
 if settings.DEMO_RETURN_OTP:
     logger.warning("DEMO_RETURN_OTP is enabled — OTPs will be returned in API responses. Never enable in production.")
 if settings.SECRET_KEY == "change-this-in-production":

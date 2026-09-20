@@ -39,21 +39,27 @@ export default function LinkedInCallback({ go }) {
       return;
     }
 
+    // Stay in-app: ask the backend for JSON (it only 302-redirects
+    // real browser navigations, so fetch never leaves this site).
+    let timer;
     fetch(
-      `${API_URL}/api/connect/linkedin/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`
+      `${API_URL}/api/connect/linkedin/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`,
+      { headers: { Accept: "application/json" } }
     )
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          throw new Error("LinkedIn callback failed");
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.detail || "LinkedIn callback failed");
         }
         setStatus("success");
-        setTimeout(() => go && go("dashboard"), 800);
+        timer = window.setTimeout(() => go && go("dashboard"), 800);
       })
       .catch((err) => {
         console.error(err);
         setStatus("error");
         setError("Failed to verify with LinkedIn.");
       });
+    return () => window.clearTimeout(timer);
   }, [go]);
 
   return (
