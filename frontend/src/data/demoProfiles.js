@@ -25,10 +25,12 @@ export const DEMO_PROFILES = [
       nic_on_file: true,
     },
     backstory:
-      "Left a Colombo print shop in 2025 to freelance full-time. Work comes in bursts " +
-      "around festival seasons; three dry months this year. Shares a rented annex room; " +
-      "the CEB bill is in the landlord's name, so only his Dialog reloads prove payment " +
-      "discipline. Has never held a bank loan — CRIB returns a No-Hit.",
+      "Left a Colombo print shop in 2025 to freelance full-time. Work comes in bursts "
+      + "around festival seasons; three dry months this year. Shares a rented annex room; "
+      + "the CEB bill is in the landlord's name, so only his Dialog reloads prove payment "
+      + "discipline. Has never held a bank loan — CRIB returns a No-Hit.",
+    public_summary:
+      "Young freelancer, single irregular income stream, thin verifiable file.",
     income_sources: [
       {
         platform: "Fiverr",
@@ -120,10 +122,12 @@ export const DEMO_PROFILES = [
       nic_on_file: true,
     },
     backstory:
-      "Seven years in a software firm, freelance since 2023. Two anchor retainers plus overflow " +
-      "gigs; income dipped once when a client paused. Mortgages nothing — rents, but every utility " +
-      "is in her name and paid via standing order. Rejected for a personal loan in 2024 for 'insufficient " +
-      "salary evidence' despite LKR 200k+ months. The demo's NBFI heroine.",
+      "Seven years in a software firm, freelance since 2023. Two anchor retainers plus overflow "
+      + "gigs; income dipped once when a client paused. Mortgages nothing — rents, but every utility "
+      + "is in her name and paid via standing order. Rejected for a personal loan in 2024 for 'insufficient "
+      + "salary evidence' despite LKR 200k+ months. The demo's NBFI heroine.",
+    public_summary:
+      "Mid-career freelancer, two steady income streams, full household bill history.",
     income_sources: [
       {
         platform: "Upwork",
@@ -226,10 +230,12 @@ export const DEMO_PROFILES = [
       nic_on_file: true,
     },
     backstory:
-      "Runs a four-person cloud studio serving US/EU clients. Money arrives via Fiverr, Upwork and " +
-      "direct wire to Payoneer; every household bill is in her name on autopay. Holds a BR, files taxes, " +
-      "and still gets treated as 'unverifiable' for anything beyond secured lending. The profile that makes " +
-      "judges ask why the system ever said no.",
+      "Runs a four-person cloud studio serving US/EU clients. Money arrives via Fiverr, Upwork and "
+      + "direct wire to Payoneer; every household bill is in her name on autopay. Holds a BR, files taxes, "
+      + "and still gets treated as 'unverifiable' for anything beyond secured lending. The profile that makes "
+      + "judges ask why the system ever said no.",
+    public_summary:
+      "Established exporter, three diversified income streams, multi-year verified record.",
     income_sources: [
       {
         platform: "Fiverr",

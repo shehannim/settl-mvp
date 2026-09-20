@@ -4,6 +4,16 @@ import { BAND_STYLES } from "../data/lenderDemo.js";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// PDPA minimisation: the viewer shows score + basic details only — alias,
+// city and occupation. Full names, emails, handles and account numbers in
+// the dataset are never rendered.
+function aliasOf(identity) {
+  const parts = String(identity.name || "").split(" ");
+  if (!parts.length) return "Borrower";
+  const last = parts.length > 1 ? ` ${parts[parts.length - 1][0]}.` : "";
+  return `${parts[0]}${last}`;
+}
+
 function TrendChart({ values }) {
   const W = 620;
   const H = 180;
@@ -61,8 +71,7 @@ function TrendChart({ values }) {
   );
 }
 
-function Field({ label, children }) {
-  return (
+function Field({ label, children }) {  return (
     <div className="p-3 bg-slate-50/70 border border-slate-100 rounded-xl">
       <div className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">{label}</div>
       <div className="text-sm font-bold text-slate-800">{children}</div>
@@ -85,6 +94,9 @@ export default function DemoProfiles({ go }) {
             </span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Borrower spectrum</h1>
             <p className="mt-1 text-sm text-slate-500">One engine, full spectrum — pick a persona to walk through.</p>
+            <p className="mt-2 inline-block rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-700">
+              Anonymized demo data · scores + basic details only
+            </p>
           </div>
           {go && (
             <button onClick={() => go("auth")}
@@ -107,7 +119,7 @@ export default function DemoProfiles({ go }) {
                   {p.expected_score.band}
                 </span>
               </div>
-              <p className="mt-2 text-sm font-bold">{p.identity.name}</p>
+              <p className="mt-2 text-sm font-bold">{aliasOf(p.identity)}</p>
               <p className="text-xs text-slate-500">{p.label} · {p.identity.city}</p>
             </button>
           ))}
@@ -117,10 +129,9 @@ export default function DemoProfiles({ go }) {
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)]">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <h2 className="text-xl font-extrabold">{profile.identity.name}</h2>
-              <p className="text-xs text-slate-500 mt-0.5 font-mono">{profile.identity.settl_id} · {profile.identity.city} · age {profile.identity.age}</p>
+              <h2 className="text-xl font-extrabold">{aliasOf(profile.identity)}</h2>
+              <p className="text-xs text-slate-500 mt-0.5 font-mono">{profile.identity.settl_id} · {profile.identity.city}</p>
               <p className="text-sm text-slate-600 mt-1">{profile.identity.occupation}</p>
-              <p className="text-xs text-slate-500">{profile.identity.education} · {profile.identity.employment_type}</p>
             </div>
             <div className="text-right">
               <div className="font-mono text-5xl font-extrabold tracking-tight">{exp.score}</div>
@@ -131,7 +142,7 @@ export default function DemoProfiles({ go }) {
             </div>
           </div>
 
-          <p className="mt-4 text-sm leading-relaxed text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-4">{profile.backstory}</p>
+          <p className="mt-4 text-sm leading-relaxed text-slate-600 bg-slate-50 border border-slate-100 rounded-xl p-4">{profile.public_summary}</p>
 
           <h3 className="mt-6 text-[11px] font-bold uppercase tracking-widest text-slate-400">12-month income (LKR)</h3>
           <div className="mt-2 rounded-xl border border-slate-100 bg-white p-3">
@@ -143,7 +154,7 @@ export default function DemoProfiles({ go }) {
             {profile.income_sources.map((s, i) => (
               <div key={i} className="rounded-xl border border-slate-100 bg-slate-50/60 p-4">
                 <p className="text-sm font-bold">{s.platform} <span className="text-xs font-medium text-slate-500">· {s.level}</span></p>
-                <p className="text-xs text-slate-500 mt-0.5">{s.handle} via {s.connected_via}</p>
+                <p className="text-xs text-slate-500 mt-0.5">via {s.connected_via}</p>
                 <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
                   <Field label="Avg / mo">LKR {s.monthly_avg_lkr.toLocaleString()}</Field>
                   <Field label="Tenure">{s.tenure_months} mo</Field>
