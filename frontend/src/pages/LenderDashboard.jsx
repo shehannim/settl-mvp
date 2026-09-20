@@ -210,6 +210,9 @@ export default function LenderDashboard({ go }) {
                       ? ` · ${result.applicant.kyc_verified ? "KYC verified" : "KYC pending"}`
                       : ` · ${result.applicant.sources} sources`}
                     {` · ${result.applicant.model_version} · scored ${result.applicant.scored_at}`}
+                    {String(result.applicant.model_version || "").startsWith("demo") && (
+                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 font-sans text-[10px] font-bold text-amber-700">Demo</span>
+                    )}
                   </p>
                 </div>
                 {verdictBadge(result.verdict)}

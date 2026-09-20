@@ -156,7 +156,14 @@ export default function Dashboard({ token, go }) {
     )}
     <section ref={heroRef}>
       {hasScore ? (
-        <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
+        <>
+          {String(score?.model_version || "").startsWith("demo") && (
+            <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs font-semibold text-amber-700">
+              Demo score — seeded from your sandbox connect. Connect live data and recalibrate for your real score.
+            </div>
+          )}
+          <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
+        </>
       ) : (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-[0_20px_55px_rgba(0,79,197,0.08)]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Your Settl Score</p>

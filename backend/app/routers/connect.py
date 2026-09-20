@@ -249,6 +249,57 @@ async def paypal_callback(request: Request, code: str, state: str):
         except Exception as e:
             logger.warning("User stats update failed: %s", e)
 
+        # 🧪 DEMO: seed a clearly-marked demo score so the dashboard and
+        # lender portal show a number immediately after a sandbox connect.
+        # model_version "demo-1.0" flags it; any real /score/compute row is
+        # newer and wins (result is ordered by computed_at desc).
+        if demo_seeded:
+            try:
+                db.table("scores").insert({
+                    "user_id": user_id,
+                    "score": 742,
+                    "band": "good",
+                    "confidence": 0.68,
+                    "confidence_breakdown": {
+                        "source_breadth": 0.25,
+                        "history_length": 0.75,
+                        "data_completeness": 0.7,
+                        "raw_confidence": 0.55,
+                        "fraud_adjustment": 1.0,
+                        "identity_consistency": 0.5,
+                        "demo": True,
+                    },
+                    "categories": [
+                        {"category": "income", "score": 74.5, "weight": 0.35},
+                        {"category": "payment", "score": 68.0, "weight": 0.30},
+                        {"category": "platform", "score": 71.0, "weight": 0.20},
+                        {"category": "footprint", "score": 62.0, "weight": 0.15},
+                    ],
+                    "top_positive_factors": [
+                        {"feature_name": "income_6m_avg", "display_label": "6-month average income",
+                         "shap_value": 18.5, "direction": "positive",
+                         "reason_code": "Steady demo freelance payouts over 12 months."},
+                        {"feature_name": "income_trend_slope", "display_label": "Income growth trend",
+                         "shap_value": 9.0, "direction": "positive",
+                         "reason_code": "Demo income trends upward."},
+                    ],
+                    "top_negative_factors": [
+                        {"feature_name": "income_source_count", "display_label": "Number of income sources",
+                         "shap_value": -6.5, "direction": "negative",
+                         "reason_code": "Only one income platform connected - add more to improve your score."},
+                    ],
+                    "improvement_tips": [
+                        {"heading": "Connect another income platform",
+                         "body": "Adding Fiverr, Upwork, or Payoneer could increase your score by 20-30 points.",
+                         "estimated_gain": "+20-30 pts", "feature": "income_source_count"},
+                    ],
+                    "feature_vector": [[0.0] * 28],
+                    "model_version": "demo-1.0",
+                    "computed_at": datetime.now(timezone.utc).isoformat(),
+                }).execute()
+            except Exception as e:
+                logger.warning("Demo score insert failed: %s", e)
+
         # ✅ Back to the frontend that started the flow (JSON for SPA fetch)
         return _callback_result(request, "/connect/paypal/success")
 
