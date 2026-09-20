@@ -21,6 +21,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     user_id: str
     role: str
+    settl_id: Optional[str] = None
 
 
 # ── KYC ──────────────────────────────────────────────────────────────

@@ -74,6 +74,7 @@ export default function Auth({ onAuthenticated, go }) {
         id: response.data.user_id,
         email: form.email.trim(),
         name: isRegister ? fullName : "",
+        settlId: response.data.settl_id || "",
         signupMethod: "email",
         isRegister,
       });

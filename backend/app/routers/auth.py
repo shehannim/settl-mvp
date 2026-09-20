@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.schemas import RegisterRequest, LoginRequest, LenderLoginRequest, TokenResponse
-from app.core.security import hash_password, verify_password, create_access_token
+from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.core.database import get_supabase_admin
 import uuid
 from datetime import datetime
@@ -56,7 +56,7 @@ async def register(body: RegisterRequest):
         )
 
     token = create_access_token({"sub": user_id, "email": email}, role="user")
-    return TokenResponse(access_token=token, user_id=user_id, role="user")
+    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -73,7 +73,24 @@ async def login(body: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": user["id"], "email": user["email"]}, role="user")
-    return TokenResponse(access_token=token, user_id=user["id"], role="user")
+    return TokenResponse(access_token=token, user_id=user["id"], role="user", settl_id=user.get("settl_id"))
+
+
+@router.get("/me")
+async def get_profile(user: dict = Depends(get_current_user)):
+    """Borrower profile: identity + unique Settl ID (shown in-app, given to lenders)."""
+    db = get_supabase_admin()
+    result = db.table("users").select("id, settl_id, email, full_name, kyc_verified").eq("id", user["sub"]).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    row = result.data[0]
+    return {
+        "user_id": row["id"],
+        "settl_id": row.get("settl_id"),
+        "email": row.get("email"),
+        "full_name": row.get("full_name"),
+        "kyc_verified": row.get("kyc_verified", False),
+    }
 
 
 @router.post("/lender/login", response_model=TokenResponse)

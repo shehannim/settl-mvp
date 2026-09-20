@@ -11,6 +11,7 @@ const CONFIG = {
     hint: "Find it at upwork.com → Settings → Get verified / profile URL.",
     placeholderUrl: "https://www.upwork.com/freelancers/~...",
     placeholderName: "e.g. A. Perera — Webflow Developer",
+    demo: { accountName: "A. Perera — Webflow Developer", profileUrl: "https://www.upwork.com/freelancers/~demo01", monthlyAvg: "195000", months: 12 },
   },
   fiverr: {
     name: "Fiverr",
@@ -20,6 +21,7 @@ const CONFIG = {
     hint: "Find it at fiverr.com → Profile → share link.",
     placeholderUrl: "https://www.fiverr.com/username",
     placeholderName: "e.g. designwithdamidu",
+    demo: { accountName: "designwithdamidu — Level 2 Seller", profileUrl: "https://www.fiverr.com/designwithdamidu", monthlyAvg: "185000", months: 12 },
   },
 };
 
@@ -95,10 +97,22 @@ export default function FreelanceConnect({ go, source = "upwork" }) {
         </div>
 
         <h1 className="text-xl font-semibold text-gray-900 mb-2">Connect your {cfg.name} profile</h1>
-        <p className="text-sm text-gray-500 mb-6 leading-relaxed">
+        <p className="text-sm text-gray-500 mb-4 leading-relaxed">
           {cfg.name} has no public freelancer OAuth, so Settl verifies via your public
           profile + declared earnings. This feeds the same income engine as PayPal/Payoneer.
         </p>
+        <button
+          onClick={() => {
+            setAccountName(cfg.demo.accountName);
+            setProfileUrl(cfg.demo.profileUrl);
+            setMonthlyAvg(cfg.demo.monthlyAvg);
+            setMonths(cfg.demo.months);
+            setError("");
+          }}
+          className="mb-6 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-[#004fc5] hover:text-[#004fc5]"
+        >
+          ⚡ Fill with demo data (for demo walkthroughs)
+        </button>
 
         <div className="bg-gray-50 rounded-xl p-4 mb-6">
           <p className="text-xs text-gray-400 uppercase tracking-wider mb-3">Settl stores only</p>

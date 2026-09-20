@@ -1,6 +1,9 @@
 import { useState } from "react";
+import axios from "axios";
 import logo from "../assets/Settl Logo.png";
 import { verifyLender } from "../data/lenderDemo.js";
+
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 export default function LenderLogin({ go }) {
   const [email, setEmail] = useState("credit@ruhunafinance.demo");
@@ -8,13 +11,37 @@ export default function LenderLogin({ go }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Demo auth against hardcoded lender directory (see src/data/lenderDemo.js).
-    // Production swaps this for POST /api/auth/lender/login.
+    // Live backend first (real lender accounts in the lenders table),
+    // then the hardcoded demo directory for walkthroughs.
+    try {
+      const res = await axios.post(`${API}/api/auth/lender/login`, {
+        email: email.trim(),
+        password,
+      });
+      localStorage.setItem("lender_session", JSON.stringify({
+        institution: "Live lender account",
+        email: email.trim(),
+        officer: "Credit officer",
+        min_score: 650,
+        min_confidence: 0.6,
+        lender_token: res.data.access_token,
+        live: true,
+        logged_in_at: new Date().toISOString(),
+      }));
+      setLoading(false);
+      go("lender-dashboard");
+      return;
+    } catch (liveErr) {
+      if (liveErr.response?.status && liveErr.response.status !== 401) {
+        // Backend reachable but errored — still allow demo fallback below.
+      }
+    }
+
     window.setTimeout(() => {
       const lender = verifyLender(email, password);
       setLoading(false);
@@ -28,6 +55,7 @@ export default function LenderLogin({ go }) {
         officer: lender.officer,
         min_score: lender.min_score,
         min_confidence: lender.min_confidence,
+        live: false,
         logged_in_at: new Date().toISOString(),
       }));
       go("lender-dashboard");

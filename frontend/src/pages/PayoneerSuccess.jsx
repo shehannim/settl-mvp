@@ -1,14 +1,31 @@
 import { useEffect, useState } from "react";
+import axios from "axios";
+
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 export default function PayoneerSuccess({ go }) {
   const [showCheck, setShowCheck] = useState(false);
+  const [calibrating, setCalibrating] = useState(true);
 
   useEffect(() => {
     // animate check after short delay, then auto redirect to dashboard.
     // Timers are tracked and cleared on unmount so leaving early can't
     // navigate a dead screen or leak handles.
     const checkTimer = window.setTimeout(() => setShowCheck(true), 300);
-    const navTimer = window.setTimeout(() => go("payoneer-dashboard"), 2500);
+    const navTimer = window.setTimeout(() => go("payoneer-dashboard"), 3500);
+
+    // Best-effort: compute the score now so the dashboard shows it
+    // immediately after connect (previously nothing triggered compute).
+    const authToken = localStorage.getItem("token");
+    if (authToken) {
+      axios
+        .post(`${API}/api/score/compute`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+        .catch(() => {})
+        .finally(() => setCalibrating(false));
+    } else {
+      setCalibrating(false);
+    }
+
     return () => {
       window.clearTimeout(checkTimer);
       window.clearTimeout(navTimer);
@@ -49,7 +66,7 @@ export default function PayoneerSuccess({ go }) {
         </div>
 
         <p className="text-sm text-gray-500 mt-4">
-          Redirecting to your dashboard...
+          {calibrating ? "Calibrating your score..." : "Redirecting to your dashboard..."}
         </p>
 
       </div>

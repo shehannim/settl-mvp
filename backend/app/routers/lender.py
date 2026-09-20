@@ -33,10 +33,10 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
     """
     db = get_supabase_admin()
 
-    # Look up user by Settl ID
+    # Look up user by Settl ID — identity columns only, never financial raw data.
     user_result = db.table("users").select(
-        "id, full_name, kyc_verified"
-    ).eq("settl_id", settl_id).execute()
+        "id, full_name, email, kyc_verified"
+    ).eq("settl_id", settl_id.strip().upper()).execute()
 
     if not user_result.data:
         raise HTTPException(status_code=404, detail="Settl ID not found")
@@ -84,17 +84,18 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
         logger.warning("Audit log insert failed: %s", e)
 
     return {
-        "settl_id": settl_id,
+        "settl_id": settl_id.strip().upper(),
         "applicant_name": user["full_name"],
+        "email": user.get("email"),
+        "kyc_verified": user.get("kyc_verified", False),
         "score": s["score"],
         "band": s["band"],
         "confidence": s["confidence"],
-        "top_positive_factors": _safe_parse(s.get("top_positive_factors")),
-        "top_negative_factors": _safe_parse(s.get("top_negative_factors")),
         "meets_threshold": meets_threshold,
         "model_version": s["model_version"],
         "scored_at": s["computed_at"],
-        # Never include: raw transactions, NIC, PayPal data, bill contents
+        # Boundary: score + identity only.
+        # Never include: raw transactions, SHAP internals, NIC, PayPal data, bill contents
     }
 
 

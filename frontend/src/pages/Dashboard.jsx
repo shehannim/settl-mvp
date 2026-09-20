@@ -12,6 +12,8 @@ export default function Dashboard({ token, go }) {
   const [score, setScore] = useState(null);
   const [sources, setSources] = useState([]);
   const [syncing, setSyncing] = useState(false);
+  const [settlId, setSettlId] = useState(() => localStorage.getItem("settl_id") || "");
+  const [copied, setCopied] = useState(false);
   const [showCollapsedScore, setShowCollapsedScore] = useState(false);
   const heroRef = useRef(null);
   const [billStatus] = useState(() => localStorage.getItem("utility_bill_review_status") || "");
@@ -28,20 +30,57 @@ export default function Dashboard({ token, go }) {
     } catch (requestError) { console.error("Failed to load sources", requestError); }
   }, [authToken]);
 
+  const [computing, setComputing] = useState(false);
+  const autoComputedRef = useRef(false);
+
   const loadScore = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/api/score/result`, { headers: { Authorization: `Bearer ${authToken}` } });
       setScore(response.data);
+      return true;
     } catch (requestError) {
-      // A new profile has no saved score yet; the hero shows the baseline state.
+      // A new profile has no saved score yet; the hero shows the thin-file state.
       if (requestError.response?.status !== 404) console.error("Failed to load score", requestError);
+      return false;
     }
   }, [authToken]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => { loadSources(); loadScore(); }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadScore, loadSources]);
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      // Unique Settl ID for the lender portal (backfills sessions from before it was stored).
+      if (!localStorage.getItem("settl_id")) {
+        try {
+          const me = await axios.get(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${authToken}` } });
+          if (me.data?.settl_id && !cancelled) {
+            localStorage.setItem("settl_id", me.data.settl_id);
+            setSettlId(me.data.settl_id);
+          }
+        } catch { /* demo/SSO tokens have no profile — keep CTA hidden-safe */ }
+      }
+      await loadSources();
+      const found = await loadScore();
+      // No score yet but sources connected (e.g. fresh PayPal connect):
+      // compute once so the dashboard shows a score instead of nothing.
+      // 403 (KYC) / 422 (insufficient data) stay in the no-score CTA state.
+      if (!found && !cancelled && !autoComputedRef.current) {
+        autoComputedRef.current = true;
+        try {
+          const src = await axios.get(`${API}/api/connect/sources`, { headers: { Authorization: `Bearer ${authToken}` } });
+          if ((src.data?.sources || []).length > 0) {
+            setComputing(true);
+            await axios.post(`${API}/api/score/compute`, {}, { headers: { Authorization: `Bearer ${authToken}` } });
+            await loadScore();
+          }
+        } catch {
+          // Keep the thin-file CTA visible.
+        } finally {
+          if (!cancelled) setComputing(false);
+        }
+      }
+    }, 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [loadScore, loadSources, authToken]);
 
   useEffect(() => {
     const hero = heroRef.current;
@@ -76,16 +115,37 @@ export default function Dashboard({ token, go }) {
   const bills = [{ name: "CEB Electricity", amount: "Upload to verify", logo: cebLogo }, { name: "SLT Fibre Broadband", amount: "Upload to verify", logo: sltLogo }, { name: "Dialog Postpaid", amount: "Upload to verify", logo: dialogLogo }];
 
   return <div className="min-h-[calc(100vh-72px)] bg-[#f8f9ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">{showCollapsedScore && hasScore && <div className="fixed left-1/2 top-[84px] z-20 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 sm:w-[420px]"><ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} collapsed /></div>}<main className="mx-auto max-w-[1180px]"><header className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Credit Score Insights</h1></div>{kycVerified ? <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#004fc5]">Verified identity</span> : <button onClick={() => go("kyc")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">Verify identity</button>}</header>
+    {settlId && (
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 px-5 py-3.5">
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[#004fc5]">Your Settl ID — give this to lenders</p>
+          <p className="mt-0.5 truncate font-mono text-base font-extrabold tracking-tight text-slate-900">{settlId}</p>
+        </div>
+        <button
+          onClick={() => {
+            try { navigator.clipboard.writeText(settlId); } catch { /* clipboard unavailable */ }
+            setCopied(true);
+            window.setTimeout(() => setCopied(false), 1500);
+          }}
+          className="rounded-full border border-blue-200 bg-white px-4 py-2 text-xs font-bold text-[#004fc5] hover:bg-blue-50"
+        >
+          {copied ? "Copied ✓" : "Copy ID"}
+        </button>
+      </div>
+    )}
     <section ref={heroRef}>
       {hasScore ? (
         <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
       ) : (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-[0_20px_55px_rgba(0,79,197,0.08)]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Your Settl Score</p>
-          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">No score yet — build yours from 300</h2>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">
+            {computing ? "Calibrating your score..." : "No score yet — build yours from 300"}
+          </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            Scores range 300–850 and grow as you add verified income and repayment signals.
-            Connect at least one income source, then recalibrate.
+            {computing
+              ? "We found your connected income — generating your first score now."
+              : "Scores range 300–850 and grow as you add verified income and repayment signals. Connect at least one income source, then recalibrate."}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             <button onClick={() => go("income-streams")} className="rounded-full bg-[#004fc5] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">

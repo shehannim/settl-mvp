@@ -93,11 +93,12 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  const completeAuth = ({ accessToken, id, email, name, signupMethod = "email", isRegister = false }) => {
+  const completeAuth = ({ accessToken, id, email, name, settlId, signupMethod = "email", isRegister = false }) => {
     localStorage.setItem("token", accessToken);
     localStorage.setItem("userId", id);
     if (email) localStorage.setItem("email", email);
     if (name) localStorage.setItem("name", name);
+    if (settlId) localStorage.setItem("settl_id", settlId);
     localStorage.setItem("auth_provider", signupMethod);
     setToken(accessToken);
     setUserId(id);
@@ -125,6 +126,7 @@ export default function App() {
       "user_id",
       "email",
       "name",
+      "settl_id",
       "auth_provider",
       "email_verified",
       "pdpa_consent_granted",
