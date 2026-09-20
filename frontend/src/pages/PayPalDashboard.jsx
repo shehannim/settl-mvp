@@ -127,14 +127,18 @@ export default function PayPalDashboard({ go }) {
     name: SOURCE_LABELS[s.source] || s.source,
     account: s.account_name || "Connected Account",
     transactions: s.transaction_count || 0,
-    monthlyIncome: null,
+    monthlyIncome: s.monthly_avg_lkr || null,
     lastSync: s.connected_at ? new Date(s.connected_at).toLocaleDateString() : "Just now",
-    isDemo: false,
+    isDemo: !!s.is_demo,
     type: s.source,
   }));
 
   const hasLiveData = liveSources.length > 0;
+  const allDemo = hasLiveData && liveSources.every((s) => s.isDemo);
   const displayedSources = hasLiveData ? liveSources : [demoSource];
+  // Hero metric: prefer live backend estimates, fall back to demo preview.
+  const liveMonthlyTotal = liveSources.reduce((t, s) => t + (s.monthlyIncome || 0), 0);
+  const heroMonthly = hasLiveData && liveMonthlyTotal > 0 ? liveMonthlyTotal : demoSource.monthlyIncome;
   const hasPaypal = realSources.some((s) => s.source === "paypal");
   const hasPayoneer = realSources.some((s) => s.source === "payoneer");
   const hasUpwork = realSources.some((s) => s.source === "upwork");
@@ -163,7 +167,7 @@ export default function PayPalDashboard({ go }) {
             </p>
           </div>
           <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-[#004fc5]">
-            {hasLiveData ? "Live data" : "Demo data"}
+            {hasLiveData ? (allDemo ? "Demo preview" : "Live data") : "Demo data"}
           </span>
         </header>
 
@@ -207,8 +211,8 @@ export default function PayPalDashboard({ go }) {
         <section className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-3">
           <MetricCard
             label="Monthly income"
-            value={formatLkr(demoSource.monthlyIncome)}
-            detail="September estimate"
+            value={formatLkr(heroMonthly)}
+            detail={hasLiveData && liveMonthlyTotal > 0 ? "Live estimate across sources" : "September estimate"}
           />
           <MetricCard
             label="Average monthly income"
@@ -440,7 +444,9 @@ export default function PayPalDashboard({ go }) {
             <div>
               <h2 className="text-base font-bold">Recent income activity</h2>
               <p className="mt-1 text-xs text-slate-500">
-                Sample payout activity used to preview this view.
+                {allDemo
+                  ? "Demo payouts seeded from your sandbox connect — matches the scoring input."
+                  : "Sample payout activity used to preview this view."}
               </p>
             </div>
             <span className="font-mono text-xs font-bold text-[#004fc5]">

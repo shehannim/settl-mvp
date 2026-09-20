@@ -57,6 +57,11 @@ class Settings(BaseSettings):
     STRIPE_SECRET_KEY: str = ""
     STRIPE_REDIRECT_URI: str = ""
 
+    # Demo seeding — when a PayPal sandbox account returns almost no
+    # transactions, seed representative demo payouts so demos show a
+    # rising score + populated income hub. Disable in production.
+    DEMO_PAYPAL_SEED: bool = True
+
     # Exchange rate
     EXCHANGE_RATE_API_KEY: str = ""
 

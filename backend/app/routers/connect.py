@@ -94,6 +94,49 @@ def _callback_result(request: Request, success_path: str):
     return RedirectResponse(f"{base}{success_path}")
 
 
+DEMO_CLIENTS = ["Northstar Studio", "Ceylon Commerce", "Horizon Labs", "Paper & Pixel"]
+
+
+def _demo_paypal_transactions(months: int = 12) -> list:
+    """Representative demo payouts for empty PayPal sandbox accounts.
+
+    Shape matches _normalise_paypal_transactions() so the income engine,
+    scoring and dashboard all treat it like real history. Amounts target
+    ~USD 750/mo (~LKR 230k) with mild variance + gentle upward trend so
+    the demo score visibly climbs above the 300 baseline.
+    """
+    import random
+    from datetime import date
+    rng = random.Random(42)
+    txs = []
+    today = date.today().replace(day=1)
+    seq = 0
+    for m in range(months - 1, -1, -1):
+        # Shift back m months from current month.
+        y, mo = today.year, today.month - m
+        while mo <= 0:
+            mo += 12
+            y -= 1
+        # Trend: older months slightly lower, recent slightly higher.
+        growth = 1.0 + (months - 1 - m) * 0.012
+        n_payouts = 3
+        for i, day in enumerate((5, 14, 26)):
+            client = DEMO_CLIENTS[(m * 3 + i) % len(DEMO_CLIENTS)]
+            amount = round(rng.uniform(180, 320) * growth, 2)
+            seq += 1
+            txs.append({
+                "transaction_id": f"demo-paypal-{seq:04d}",
+                "date": f"{y:04d}-{mo:02d}-{day:02d}",
+                "amount_usd": amount,
+                "currency": "USD",
+                "type": "PAYMENT",
+                "status": "S",
+                "counterparty": client,
+                "note": "Freelance payout (demo)",
+            })
+    return txs
+
+
 # ✅ STEP 1 — Start OAuth
 @router.get("/paypal")
 async def connect_paypal(user: dict = Depends(get_current_user)):
@@ -139,6 +182,17 @@ async def paypal_callback(request: Request, code: str, state: str):
         except Exception as e:
             logger.warning("PayPal transaction fetch failed: %s", e)
 
+        # 🧪 DEMO: empty sandbox accounts get representative payouts so the
+        # demo shows a rising score + populated income hub. Real history
+        # (>= 6 txns) is never touched. Disable via DEMO_PAYPAL_SEED=false.
+        demo_seeded = False
+        if settings.DEMO_PAYPAL_SEED and len(transactions) < 6:
+            transactions = _demo_paypal_transactions(months=12)
+            demo_seeded = True
+            logger.info("PayPal demo seed: %d demo txns for user %s", len(transactions), user_id)
+            if not profile.get("name"):
+                profile = {**profile, "name": "Demo Freelancer", "email": "demo@settl.demo"}
+
         # ✅ SAFE processing
         usd_to_lkr = 1.0
         monthly_income = []
@@ -148,6 +202,8 @@ async def paypal_callback(request: Request, code: str, state: str):
             usd_to_lkr = await get_usd_to_lkr_rate()
             monthly_income = build_monthly_income(transactions, usd_to_lkr)
             income_features = compute_income_features(monthly_income)
+            if demo_seeded:
+                income_features = {**income_features, "demo": True}
         except Exception as e:
             logger.warning("Income processing failed: %s", e)
 
@@ -161,7 +217,7 @@ async def paypal_callback(request: Request, code: str, state: str):
         base_row = {
             "user_id": user_id,
             "source": "paypal",
-            "account_name": (profile.get("name", "") if profile else ""),
+            "account_name": (profile.get("name", "") if profile else "") or ("Demo Freelancer · PayPal (demo)" if demo_seeded else "PayPal"),
             "transaction_count": len(transactions),
             "date_range_months": len(monthly_income),
             "income_features": income_features,
@@ -387,8 +443,25 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
         .eq("user_id", user_id)\
         .execute()
 
+    import json as _json
     sources = []
     for s in result.data:
+        feats = s.get("income_features") or {}
+        if isinstance(feats, str):
+            try:
+                feats = _json.loads(feats)
+            except Exception:
+                feats = {}
+        # Monthly LKR estimate so the income hub can render live figures
+        # instead of "—" (median freelance income = LKR 150k, same as engine).
+        monthly_avg_lkr = None
+        for key in ("income_6m_avg", "income_3m_avg"):
+            try:
+                if feats.get(key):
+                    monthly_avg_lkr = round(float(feats[key]) * 150_000)
+                    break
+            except (TypeError, ValueError):
+                continue
         sources.append({
             "source": s["source"],
             "connected": True,
@@ -396,7 +469,9 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
             "transaction_count": s.get("transaction_count"),
             "date_range_months": s.get("date_range_months"),
             "connected_at": s.get("connected_at"),
-            "is_primary": s.get("is_primary", False) # 🆕 Include in frontend payload
+            "is_primary": s.get("is_primary", False), # 🆕 Include in frontend payload
+            "monthly_avg_lkr": monthly_avg_lkr,
+            "is_demo": bool(feats.get("demo")),
         })
 
     # ✅ Confidence calculation
