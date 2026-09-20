@@ -274,6 +274,14 @@ export default function Auth({ onAuthenticated, go }) {
                 >
                   Lender sign-in →
                 </button>
+                {"  ·  "}
+                <button
+                  type="button"
+                  onClick={() => go && go("demo-profiles")}
+                  className="font-bold text-[#004fc5] hover:underline cursor-pointer"
+                >
+                  Explore demo borrower personas →
+                </button>
               </p>
             </form>
           </div>
