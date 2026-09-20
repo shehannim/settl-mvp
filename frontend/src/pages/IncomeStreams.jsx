@@ -56,10 +56,14 @@ export default function IncomeStreams({ go }) {
   const [notice, setNotice] = useState("");
   const [connected, setConnected] = useState({});
   const [disconnecting, setDisconnecting] = useState("");
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem("token");
-    if (!token) return;
+    if (!token) {
+      setSessionExpired(true);
+      return;
+    }
     axios
       .get(`${API}/api/connect/sources`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -76,7 +80,9 @@ export default function IncomeStreams({ go }) {
           );
         }
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (err.response?.status === 401) setSessionExpired(true);
+      });
   }, []);
 
   const handleConnect = (platform) => {
@@ -261,6 +267,15 @@ export default function IncomeStreams({ go }) {
                 );
               })}
             </div>
+
+            {sessionExpired && (
+              <button
+                onClick={() => go("auth")}
+                className="mt-6 w-full rounded-xl border border-red-200 bg-red-50 p-3.5 text-sm font-bold text-red-600 hover:bg-red-100"
+              >
+                Session expired — sign in again to see your connections
+              </button>
+            )}
 
             {notice && (
               <p

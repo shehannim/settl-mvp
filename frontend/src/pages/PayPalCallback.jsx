@@ -36,13 +36,27 @@ export default function PayPalCallback({ go }) {
 
     if (!code) {
       setStatus("error");
-      setError("No authorization code received from PayPal.");
+      const providerError = params.get("error");
+      const providerHint = params.get("error_description");
+      setError(
+        providerError
+          ? `PayPal refused the connection (${providerError}). ${providerHint || "Check the sandbox app's redirect URI and try again."}`
+          : "No authorization code received from PayPal."
+      );
+      return;
+    }
+    if (!state) {
+      setStatus("error");
+      setError("Connection expired (missing session state). Start the PayPal connect again — it takes under a minute.");
       return;
     }
 
     // Stay in-app: ask the backend for JSON (it only 302-redirects
     // real browser navigations, so fetch never leaves this site).
+    // Then VERIFY the link is readable via /sources before declaring
+    // success — a false "Connected!" with nothing saved is worse than an error.
     let timer;
+    const authToken = localStorage.getItem("token");
     fetch(
       `${API_URL}/api/connect/paypal/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`,
       { headers: { Accept: "application/json" } }
@@ -50,15 +64,26 @@ export default function PayPalCallback({ go }) {
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "PayPal callback failed");
+          throw new Error(data.detail || `PayPal callback failed (${res.status})`);
+        }
+        if (!authToken) throw new Error("Signed out before the connection finished. Sign in and try again.");
+        const src = await fetch(`${API_URL}/api/connect/sources`, {
+          headers: { Authorization: `Bearer ${authToken}`, Accept: "application/json" },
+        });
+        if (!src.ok) throw new Error("PayPal approved, but your session expired before the link could be confirmed. Sign in and reconnect.");
+        const list = (await src.json().catch(() => ({}))).sources || [];
+        if (!list.some((s) => s.source === "paypal")) {
+          throw new Error("PayPal approved, but the link wasn't saved. Reconnect once — if it repeats, the backend database write is failing (Render logs: 'PayPal callback failed').");
         }
         setStatus("success");
         timer = window.setTimeout(() => go && go("paypal-success"), 800);
       })
       .catch((err) => {
         console.error(err);
+        // Surface the backend reason (expired state, bad client/secret,
+        // redirect mismatch) so the failure is diagnosable in-app.
         setStatus("error");
-        setError("Failed to establish secure connection with PayPal.");
+        setError(err.message || "Failed to establish secure connection with PayPal.");
       });
     return () => window.clearTimeout(timer);
   }, [go]);

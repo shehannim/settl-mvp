@@ -104,16 +104,23 @@ function buildTrendGeometry(values, width = 640, height = 260) {
 
 export default function PayPalDashboard({ go }) {
   const [realSources, setRealSources] = useState([]);
+  const [sessionExpired, setSessionExpired] = useState(false);
 
   useEffect(() => {
     const authToken = localStorage.getItem("token");
-    if (!authToken) return;
+    if (!authToken) {
+      setSessionExpired(true);
+      return;
+    }
     axios
       .get(`${API}/api/connect/sources`, {
         headers: { Authorization: `Bearer ${authToken}` },
       })
       .then((res) => setRealSources(res.data?.sources || []))
-      .catch((err) => console.error("Failed to load sources", err));
+      .catch((err) => {
+        if (err.response?.status === 401) setSessionExpired(true);
+        else console.error("Failed to load sources", err);
+      });
   }, []);
 
   const SOURCE_LABELS = {
@@ -169,6 +176,14 @@ export default function PayPalDashboard({ go }) {
           <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-[#004fc5]">
             {hasLiveData ? (allDemo ? "Demo preview" : "Live data") : "Demo data"}
           </span>
+          {sessionExpired && (
+            <button
+              onClick={() => go && go("auth")}
+              className="rounded-full border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 hover:bg-red-100"
+            >
+              Session expired — sign in again
+            </button>
+          )}
         </header>
 
         {(!hasPaypal || !hasPayoneer || !hasUpwork || !hasFiverr) && (

@@ -6,6 +6,7 @@ const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender
 export default function PayPalSuccess({ go }) {
   const [showCheck, setShowCheck] = useState(false);
   const [calibrating, setCalibrating] = useState(true);
+  const [linkMissing, setLinkMissing] = useState(false);
 
   useEffect(() => {
     // animate check after short delay, then auto redirect to dashboard.
@@ -16,14 +17,25 @@ export default function PayPalSuccess({ go }) {
 
     // Best-effort: compute the score now so the dashboard shows it
     // immediately after connect (previously nothing triggered compute).
+    // Also confirm the link is actually readable — never celebrate a
+    // connection the income hub can't see.
     const authToken = localStorage.getItem("token");
     if (authToken) {
       axios
-        .post(`${API}/api/score/compute`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+        .get(`${API}/api/connect/sources`, { headers: { Authorization: `Bearer ${authToken}` } })
+        .then((res) => {
+          if (!(res.data?.sources || []).some((s) => s.source === "paypal")) setLinkMissing(true);
+        })
         .catch(() => {})
-        .finally(() => setCalibrating(false));
+        .finally(() => {
+          axios
+            .post(`${API}/api/score/compute`, {}, { headers: { Authorization: `Bearer ${authToken}` } })
+            .catch(() => {})
+            .finally(() => setCalibrating(false));
+        });
     } else {
       setCalibrating(false);
+      setLinkMissing(true);
     }
 
     return () => {
@@ -65,6 +77,12 @@ export default function PayPalSuccess({ go }) {
           <div className="w-2 h-2 bg-emerald-400 rounded-full animate-bounce delay-300"></div>
         </div>
 
+        {linkMissing && !calibrating && (
+          <p className="mx-auto mt-2 max-w-xs rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-semibold text-amber-700">
+            PayPal approved, but the link isn&apos;t showing on your account yet. If the income hub still says
+            Connect, reconnect once from Income Streams.
+          </p>
+        )}
         <p className="text-sm text-gray-500 mt-4">
           {calibrating ? "Calibrating your score..." : "Redirecting to your dashboard..."}
         </p>

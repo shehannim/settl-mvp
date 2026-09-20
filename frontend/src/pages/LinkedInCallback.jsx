@@ -39,9 +39,9 @@ export default function LinkedInCallback({ go }) {
       return;
     }
 
-    // Stay in-app: ask the backend for JSON (it only 302-redirects
-    // real browser navigations, so fetch never leaves this site).
+    // Stay in-app + VERIFY the link is readable before declaring success.
     let timer;
+    const authToken = localStorage.getItem("token");
     fetch(
       `${API_URL}/api/connect/linkedin/callback?code=${encodeURIComponent(code)}&state=${encodeURIComponent(state || "")}`,
       { headers: { Accept: "application/json" } }
@@ -49,7 +49,16 @@ export default function LinkedInCallback({ go }) {
       .then(async (res) => {
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          throw new Error(data.detail || "LinkedIn callback failed");
+          throw new Error(data.detail || `LinkedIn callback failed (${res.status})`);
+        }
+        if (!authToken) throw new Error("Signed out before verification finished. Sign in and try again.");
+        const src = await fetch(`${API_URL}/api/connect/sources`, {
+          headers: { Authorization: `Bearer ${authToken}`, Accept: "application/json" },
+        });
+        if (!src.ok) throw new Error("LinkedIn approved, but your session expired before it could be confirmed. Sign in and retry.");
+        const list = (await src.json().catch(() => ({}))).sources || [];
+        if (!list.some((s) => s.source === "linkedin")) {
+          throw new Error("LinkedIn approved, but the link wasn't saved. Retry once — if it repeats, the backend database write is failing.");
         }
         setStatus("success");
         timer = window.setTimeout(() => go && go("dashboard"), 800);
@@ -57,7 +66,7 @@ export default function LinkedInCallback({ go }) {
       .catch((err) => {
         console.error(err);
         setStatus("error");
-        setError("Failed to verify with LinkedIn.");
+        setError(err.message || "Failed to verify with LinkedIn.");
       });
     return () => window.clearTimeout(timer);
   }, [go]);

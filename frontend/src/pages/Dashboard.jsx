@@ -23,11 +23,19 @@ export default function Dashboard({ token, go }) {
   const paypal = sources.find((source) => source.source === "paypal");
   const payoneer = sources.find((source) => source.source === "payoneer");
 
+  const [sessionExpired, setSessionExpired] = useState(false);
+
   const loadSources = useCallback(async () => {
     try {
       const response = await axios.get(`${API}/api/connect/sources`, { headers: { Authorization: `Bearer ${authToken}` } });
       setSources(response.data.sources || []);
-    } catch (requestError) { console.error("Failed to load sources", requestError); }
+      setSessionExpired(false);
+    } catch (requestError) {
+      // An expired/invalid token yields an empty list — say so instead of
+      // silently showing every source as "Not connected".
+      if (requestError.response?.status === 401) setSessionExpired(true);
+      else console.error("Failed to load sources", requestError);
+    }
   }, [authToken]);
 
   const [computing, setComputing] = useState(false);
@@ -115,6 +123,19 @@ export default function Dashboard({ token, go }) {
   const bills = [{ name: "CEB Electricity", amount: "Upload to verify", logo: cebLogo }, { name: "SLT Fibre Broadband", amount: "Upload to verify", logo: sltLogo }, { name: "Dialog Postpaid", amount: "Upload to verify", logo: dialogLogo }];
 
   return <div className="min-h-[calc(100vh-72px)] bg-[#f8f9ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">{showCollapsedScore && hasScore && <div className="fixed left-1/2 top-[84px] z-20 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 sm:w-[420px]"><ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} collapsed /></div>}<main className="mx-auto max-w-[1180px]"><header className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Credit Score Insights</h1></div>{kycVerified ? <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#004fc5]">Verified identity</span> : <button onClick={() => go("kyc")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">Verify identity</button>}</header>
+    {sessionExpired && (
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-red-200 bg-red-50 px-5 py-3.5">
+        <p className="min-w-0 flex-1 text-sm font-semibold text-red-700">
+          Session expired — your connections and score can&apos;t load until you sign in again.
+        </p>
+        <button
+          onClick={() => go("auth")}
+          className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700"
+        >
+          Sign in again
+        </button>
+      </div>
+    )}
     {settlId && (
       <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-blue-100 bg-blue-50/60 px-5 py-3.5">
         <div className="min-w-0 flex-1">
@@ -145,12 +166,20 @@ export default function Dashboard({ token, go }) {
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
             {computing
               ? "We found your connected income — generating your first score now."
-              : "Scores range 300–850 and grow as you add verified income and repayment signals. Connect at least one income source, then recalibrate."}
+              : !kycVerified
+                ? "Scores range 300–850. Identity verification is required before your first score — verify, then recalibrate."
+                : "Scores range 300–850 and grow as you add verified income and repayment signals. Connect at least one income source, then recalibrate."}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
-            <button onClick={() => go("income-streams")} className="rounded-full bg-[#004fc5] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">
-              Connect income →
-            </button>
+            {!kycVerified ? (
+              <button onClick={() => go("kyc")} className="rounded-full bg-[#004fc5] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">
+                Verify identity →
+              </button>
+            ) : (
+              <button onClick={() => go("income-streams")} className="rounded-full bg-[#004fc5] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">
+                Connect income →
+              </button>
+            )}
             <button onClick={() => go("score-calibration")} className="rounded-full border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
               Recalibrate score
             </button>
