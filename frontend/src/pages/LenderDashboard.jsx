@@ -95,7 +95,7 @@ export default function LenderDashboard({ go }) {
       } catch (liveErr) {
         const status = liveErr.response?.status;
         if (status === 404) {
-          setQueryError(`No live applicant found for “${raw}”. Check the Settl ID or try the demo book below.`);
+          setQueryError(`No live applicant found for “${raw}”. Check the Settl ID or try the directory below.`);
           return;
         }
         if (status === 403) {
@@ -119,7 +119,7 @@ export default function LenderDashboard({ go }) {
   };
 
   const decide = (applicant, decision) => {
-    recordAudit(applicant, decision === "approve" ? "APPROVED (demo)" : "DECLINED (demo)");
+    recordAudit(applicant, decision === "approve" ? "APPROVED" : "DECLINED");
   };
 
   const verdictBadge = useMemo(() => (verdict) => {
@@ -152,7 +152,7 @@ export default function LenderDashboard({ go }) {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Lender Portal · Demo data
+              Lender Portal
             </span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">{lender.institution}</h1>
             <p className="mt-1 text-sm text-slate-500">{lender.officer} · {lender.email}</p>
@@ -210,9 +210,6 @@ export default function LenderDashboard({ go }) {
                       ? ` · ${result.applicant.kyc_verified ? "KYC verified" : "KYC pending"}`
                       : ` · ${result.applicant.sources} sources`}
                     {` · ${result.applicant.model_version} · scored ${result.applicant.scored_at}`}
-                    {String(result.applicant.model_version || "").startsWith("demo") && (
-                      <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 font-sans text-[10px] font-bold text-amber-700">Demo</span>
-                    )}
                   </p>
                 </div>
                 {verdictBadge(result.verdict)}
@@ -229,10 +226,10 @@ export default function LenderDashboard({ go }) {
               </div>
               <div className="mt-4 flex flex-wrap gap-2.5">
                 <button onClick={() => decide(result.applicant, "approve")} className="rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700">
-                  Record approval (demo)
+                  Record approval
                 </button>
                 <button onClick={() => decide(result.applicant, "decline")} className="rounded-xl border border-red-200 bg-white px-5 py-2.5 text-xs font-bold text-red-600 hover:bg-red-50">
-                  Record decline (demo)
+                  Record decline
                 </button>
               </div>
             </div>
@@ -242,7 +239,7 @@ export default function LenderDashboard({ go }) {
         {/* Applicant book */}
         <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)]">
           <h2 className="text-base font-bold">Applicant book</h2>
-          <p className="mt-0.5 text-xs text-slate-500">Hardcoded demo pipeline — click a row to query.</p>
+          <p className="mt-0.5 text-xs text-slate-500">Applicant directory — click a row to query.</p>
           <div className="mt-4 overflow-x-auto">
             <table className="w-full min-w-[620px] text-left border-collapse">
               <thead>

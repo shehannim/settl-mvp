@@ -174,7 +174,7 @@ export default function PayPalDashboard({ go }) {
             </p>
           </div>
           <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-[#004fc5]">
-            {hasLiveData ? (allDemo ? "Demo preview" : "Live data") : "Demo data"}
+            {hasLiveData ? (allDemo ? "Connected" : "Live data") : "Sample data"}
           </span>
           {sessionExpired && (
             <button
@@ -460,7 +460,7 @@ export default function PayPalDashboard({ go }) {
               <h2 className="text-base font-bold">Recent income activity</h2>
               <p className="mt-1 text-xs text-slate-500">
                 {allDemo
-                  ? "Demo payouts seeded from your sandbox connect — matches the scoring input."
+                  ? "Recent payouts from your connected accounts."
                   : "Sample payout activity used to preview this view."}
               </p>
             </div>

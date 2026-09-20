@@ -46,7 +46,7 @@ export default function LenderLogin({ go }) {
       const lender = verifyLender(email, password);
       setLoading(false);
       if (!lender) {
-        setError("Invalid lender credentials. Try a demo account below.");
+        setError("Invalid lender credentials. Try a test account below.");
         return;
       }
       localStorage.setItem("lender_session", JSON.stringify({
@@ -68,7 +68,7 @@ export default function LenderLogin({ go }) {
         <div className="text-center mb-6">
           <img src={logo} alt="Settl" className="h-11 w-auto object-contain mx-auto" />
           <span className="mt-3 inline-block rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-            Lender Portal · Demo data
+            Lender Portal
           </span>
         </div>
 
@@ -128,7 +128,7 @@ export default function LenderLogin({ go }) {
 
           <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 p-3.5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Demo accounts (any password shown works)
+              Test accounts (any password shown works)
             </p>
             <div className="space-y-1.5 text-xs text-slate-600">
               <p><span className="font-bold">credit@ruhunafinance.demo</span> · Ruhuna Finance · thresholds 620 / 50%</p>

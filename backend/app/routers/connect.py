@@ -191,7 +191,7 @@ async def paypal_callback(request: Request, code: str, state: str):
             demo_seeded = True
             logger.info("PayPal demo seed: %d demo txns for user %s", len(transactions), user_id)
             if not profile.get("name"):
-                profile = {**profile, "name": "Demo Freelancer", "email": "demo@settl.demo"}
+                profile = {**profile, "name": "PayPal Business", "email": "paypal.user@settl"}
 
         # ✅ SAFE processing
         usd_to_lkr = 1.0
@@ -217,7 +217,7 @@ async def paypal_callback(request: Request, code: str, state: str):
         base_row = {
             "user_id": user_id,
             "source": "paypal",
-            "account_name": (profile.get("name", "") if profile else "") or ("Demo Freelancer · PayPal (demo)" if demo_seeded else "PayPal"),
+            "account_name": (profile.get("name", "") if profile else "") or "PayPal Business",
             "transaction_count": len(transactions),
             "date_range_months": len(monthly_income),
             "income_features": income_features,
@@ -257,30 +257,30 @@ async def paypal_callback(request: Request, code: str, state: str):
             try:
                 db.table("scores").insert({
                     "user_id": user_id,
-                    "score": 742,
-                    "band": "good",
-                    "confidence": 0.68,
+                    "score": 612,
+                    "band": "fair",
+                    "confidence": 0.42,
                     "confidence_breakdown": {
                         "source_breadth": 0.25,
-                        "history_length": 0.75,
-                        "data_completeness": 0.7,
-                        "raw_confidence": 0.55,
+                        "history_length": 0.55,
+                        "data_completeness": 0.5,
+                        "raw_confidence": 0.42,
                         "fraud_adjustment": 1.0,
                         "identity_consistency": 0.5,
                         "demo": True,
                     },
                     "categories": [
-                        {"category": "income", "score": 74.5, "weight": 0.35},
-                        {"category": "payment", "score": 68.0, "weight": 0.30},
-                        {"category": "platform", "score": 71.0, "weight": 0.20},
-                        {"category": "footprint", "score": 62.0, "weight": 0.15},
+                        {"category": "income", "score": 61.0, "weight": 0.35},
+                        {"category": "payment", "score": 57.5, "weight": 0.30},
+                        {"category": "platform", "score": 59.0, "weight": 0.20},
+                        {"category": "footprint", "score": 52.0, "weight": 0.15},
                     ],
                     "top_positive_factors": [
                         {"feature_name": "income_6m_avg", "display_label": "6-month average income",
-                         "shap_value": 18.5, "direction": "positive",
+                         "shap_value": 11.0, "direction": "positive",
                          "reason_code": "Steady demo freelance payouts over 12 months."},
                         {"feature_name": "income_trend_slope", "display_label": "Income growth trend",
-                         "shap_value": 9.0, "direction": "positive",
+                         "shap_value": 5.5, "direction": "positive",
                          "reason_code": "Demo income trends upward."},
                     ],
                     "top_negative_factors": [

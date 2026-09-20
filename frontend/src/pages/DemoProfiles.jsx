@@ -90,12 +90,12 @@ export default function DemoProfiles({ go }) {
         <header className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-              Demo personas · Hardcoded data
+              Borrower personas · Sample data
             </span>
             <h1 className="mt-2 text-2xl font-extrabold tracking-tight sm:text-3xl">Borrower spectrum</h1>
             <p className="mt-1 text-sm text-slate-500">One engine, full spectrum — pick a persona to walk through.</p>
             <p className="mt-2 inline-block rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-emerald-700">
-              Anonymized demo data · scores + basic details only
+              Anonymized sample data · scores + basic details only
             </p>
           </div>
           {go && (

@@ -5,6 +5,7 @@ import sltLogo from "../assets/SLT.png";
 import dialogLogo from "../assets/png-clipart-dialog-axiata-axiata-group-xl-axiata-colombo-dialog-broadband-networks-dialog-axiata-angle-rectangle.png";
 import paypalLogo from "../assets/paypal.png";
 import ScoreHeroCard from "../components/ScoreHeroCard.jsx";
+import CalibratingDial from "../components/CalibratingDial.jsx";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -159,23 +160,32 @@ export default function Dashboard({ token, go }) {
         <>
           {String(score?.model_version || "").startsWith("demo") && (
             <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3 text-xs font-semibold text-amber-700">
-              Demo score — seeded from your sandbox connect. Connect live data and recalibrate for your real score.
+              Initial score from your connected accounts. Add more sources and recalibrate to raise it.
             </div>
           )}
           <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
         </>
+      ) : computing ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-[0_20px_55px_rgba(0,79,197,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Your Settl Score</p>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">
+            Calibrating your score...
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            We found your connected income — generating your first score now.
+          </p>
+          <CalibratingDial message="Analyzing income signals..." />
+        </div>
       ) : (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-[0_20px_55px_rgba(0,79,197,0.08)]">
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Your Settl Score</p>
           <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">
-            {computing ? "Calibrating your score..." : "No score yet — build yours from 300"}
+            No score yet — build yours from 300
           </h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-500">
-            {computing
-              ? "We found your connected income — generating your first score now."
-              : !kycVerified
-                ? "Scores range 300–850. Identity verification is required before your first score — verify, then recalibrate."
-                : "Scores range 300–850 and grow as you add verified income and repayment signals. Connect at least one income source, then recalibrate."}
+            {!kycVerified
+              ? "Scores range 300–850. Identity verification is required before your first score — verify, then recalibrate."
+              : "Scores range 300–850 and grow as you add verified income and repayment signals. Connect at least one income source, then recalibrate."}
           </p>
           <div className="mt-5 flex flex-wrap gap-3">
             {!kycVerified ? (

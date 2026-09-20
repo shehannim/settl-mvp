@@ -111,7 +111,7 @@ export default function FreelanceConnect({ go, source = "upwork" }) {
           }}
           className="mb-6 w-full rounded-xl border border-dashed border-slate-300 bg-slate-50 py-2.5 text-xs font-bold text-slate-600 hover:border-[#004fc5] hover:text-[#004fc5]"
         >
-          ⚡ Fill with demo data (for demo walkthroughs)
+          ⚡ Fill with sample details
         </button>
 
         <div className="bg-gray-50 rounded-xl p-4 mb-6">
