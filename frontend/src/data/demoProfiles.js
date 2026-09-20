@@ -317,9 +317,9 @@ export const DEMO_PROFILES = [
       fraud_flag_count: 0,
     },
     expected_score: {
-      score: 833,
+      score: 820,
       band: "excellent",
-      confidence: 0.88,
+      confidence: 0.91,
       verdict: "Approve at prime terms — safer than most salaried files in the book.",
       top_positive_factors: ["Income stability (CV 0.04)", "48-month perfect bill record", "3 diversified income streams + BNPL history"],
       top_negative_factors: ["Platform concentration (62% via one marketplace family)"],
