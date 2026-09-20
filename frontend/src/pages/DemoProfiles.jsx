@@ -174,6 +174,9 @@ export default function DemoProfiles({ go }) {
                 <div className="text-sm font-bold text-slate-800">
                   {bill.ontime_rate == null ? "Not attributable" : `${Math.round(bill.ontime_rate * 100)}% on-time · ${bill.months} mo`}
                 </div>
+                {bill.account && bill.account !== "—" && (
+                  <div className="font-mono text-[11px] text-slate-500 mt-0.5">{bill.account}</div>
+                )}
                 {bill.note && <div className="text-[11px] text-slate-500 mt-0.5">{bill.note}</div>}
               </div>
             ))}

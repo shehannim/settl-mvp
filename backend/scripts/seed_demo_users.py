@@ -28,6 +28,56 @@ import httpx
 API_DEFAULT = "http://localhost:8000"
 PASSWORD = "Demo@1234"
 
+# Biller catalogue for realistic seeded bills (masked accounts, base amounts).
+BILLERS = {
+    "CEB": {"prefix": "CEB-41", "base": 5200},
+    "SLT Fibre": {"prefix": "047", "base": 4500},
+    "Dialog Postpaid": {"prefix": "077", "base": 2200},
+    "NWSDB Water": {"prefix": "NWS-88", "base": 1800},
+    "Dialog Mobile Prepaid": {"prefix": "077", "base": 1490},
+}
+
+
+def build_bill_rows(plan, end_year=2026, end_month=8):
+    """Deterministic realistic bill rows.
+
+    plan: list of (biller, on_time). Periods walk back month by month from
+    end_month; amounts jitter deterministically; late bills paid 7 days
+    after the due date (22nd), on-time bills on the 15th.
+    """
+    rows = []
+    y, m = end_year, end_month
+    for i, (biller, on_time) in enumerate(plan):
+        cfg = BILLERS[biller]
+        amount = cfg["base"] + ((i * 137 + len(biller) * 53) % 900) - 200
+        period = f"01/{m:02d}/{y} - 28/{m:02d}/{y}"
+        due = f"22/{m:02d}/{y}"
+        paid_day = 15 if on_time else 29
+        paid = f"{paid_day:02d}/{m:02d}/{y}"
+        account = f"{cfg['prefix']}••••{(1000 + i * 37) % 9000 + 1000}"
+        rows.append({
+            "biller_detected": biller,
+            "fields": [
+                {"field_name": "account_number", "extracted_value": account,
+                 "confidence": 1.0, "user_verified": True},
+                {"field_name": "billing_period", "extracted_value": period,
+                 "confidence": 1.0, "user_verified": True},
+                {"field_name": "amount_due", "extracted_value": f"{amount:,.2f}",
+                 "confidence": 1.0, "user_verified": True},
+                {"field_name": "due_date", "extracted_value": due,
+                 "confidence": 1.0, "user_verified": True},
+                {"field_name": "payment_date", "extracted_value": paid,
+                 "confidence": 1.0, "user_verified": True},
+            ],
+            "overall_confidence": 1.0,
+            "identity_match_score": 0.9,
+            "payment_on_time": on_time,
+        })
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return rows
+
 PERSONAS = [
     {
         "key": "struggling",
@@ -45,9 +95,9 @@ PERSONAS = [
                  "income_3m_avg": 0.15, "income_6m_avg": 0.15,
                  "income_yoy_growth": -0.2}},
         ],
-        # 5 bills, 1 on time -> thin + gappy -> poor band
-        "bills_on_time": [True, False, False, False, False],
-        "biller": "Dialog Mobile Prepaid",
+        # 5 Dialog bills, 1 on time -> thin + gappy -> poor band
+        "bill_plan": [("Dialog Mobile Prepaid", True)] + [
+            ("Dialog Mobile Prepaid", False)] * 4,
     },
     {
         "key": "stable",
@@ -73,8 +123,13 @@ PERSONAS = [
                  "income_yoy_growth": 0.1}},
         ],
         # 20 bills, 16 on time -> 0.80 -> good band (live-tuned on prod model)
-        "bills_on_time": [True] * 16 + [False] * 4,
-        "biller": "CEB",
+        # Late ones spread across billers so no single biller looks neglected.
+        "bill_plan": (
+            [("CEB", True)] * 7 + [("CEB", False)]
+            + [("SLT Fibre", True)] * 5 + [("SLT Fibre", False)]
+            + [("Dialog Postpaid", True)] * 3 + [("Dialog Postpaid", False)]
+            + [("NWSDB Water", True)] + [("NWSDB Water", False)]
+        ),
     },
     {
         "key": "exceptional",
@@ -102,9 +157,13 @@ PERSONAS = [
              "transaction_count": 0, "date_range_months": 0,
              "income_features": {"linkedin": {"name": "Ayesha Rahman"}}},
         ],
-        # 22 bills, all on time -> 1.00 (44-month history represented at 22 rows)
-        "bills_on_time": [True] * 22,
-        "biller": "CEB",
+        # 22 bills, all on time -> 1.00 (recent 22 months shown)
+        "bill_plan": (
+            [("CEB", True)] * 10
+            + [("SLT Fibre", True)] * 6
+            + [("Dialog Postpaid", True)] * 4
+            + [("NWSDB Water", True)] * 2
+        ),
     },
 ]
 
@@ -133,7 +192,7 @@ def seed_user(client: httpx.Client, db, persona: dict, dry: bool):
         print(f"  [dry] profile: kyc=True nic={persona['nic_number']} "
               f"identity={persona['identity_consistency_score']}")
         print(f"  [dry] {len(persona['sources'])} sources, "
-              f"{len(persona['bills_on_time'])} bills, then POST /score/compute")
+              f"{len(persona['bill_plan'])} bills, then POST /score/compute")
         return
 
     db.table("users").update({
@@ -160,16 +219,26 @@ def seed_user(client: httpx.Client, db, persona: dict, dry: bool):
             "access_token_hash": "seeded-demo",
         }, on_conflict="user_id,source").execute()
 
-    for on_time in persona["bills_on_time"]:
+    # Idempotent re-runs: clear previously seeded bills first, otherwise
+    # re-seeding would stack duplicate rows and shift the score.
+    if not dry:
+        try:
+            db.table("verified_bills").delete().eq("user_id", user_id).execute()
+        except Exception as e:
+            print(f"  bill cleanup warning: {e}")
+
+    for bill in build_bill_rows(persona["bill_plan"]):
+        if dry:
+            continue
         db.table("verified_bills").insert({
             "id": str(uuid.uuid4()),
             "user_id": user_id,
             "storage_path": "seeded-demo",
-            "biller_detected": persona["biller"],
-            "fields": [],
-            "overall_confidence": 1.0,
-            "identity_match_score": 0.9,
-            "payment_on_time": on_time,
+            "biller_detected": bill["biller_detected"],
+            "fields": bill["fields"],
+            "overall_confidence": bill["overall_confidence"],
+            "identity_match_score": bill["identity_match_score"],
+            "payment_on_time": bill["payment_on_time"],
             "confirmed_at": now,
         }).execute()
 
