@@ -116,9 +116,15 @@ export default function PayPalDashboard({ go }) {
       .catch((err) => console.error("Failed to load sources", err));
   }, []);
 
+  const SOURCE_LABELS = {
+    paypal: "PayPal Business",
+    payoneer: "Payoneer Payouts",
+    upwork: "Upwork Contracts",
+    fiverr: "Fiverr Revenue",
+  };
   const liveSources = realSources.map((s) => ({
     id: s.source,
-    name: s.source === "paypal" ? "PayPal Business" : s.source === "payoneer" ? "Payoneer Payouts" : s.source,
+    name: SOURCE_LABELS[s.source] || s.source,
     account: s.account_name || "Connected Account",
     transactions: s.transaction_count || 0,
     monthlyIncome: null,
@@ -131,6 +137,8 @@ export default function PayPalDashboard({ go }) {
   const displayedSources = hasLiveData ? liveSources : [demoSource];
   const hasPaypal = realSources.some((s) => s.source === "paypal");
   const hasPayoneer = realSources.some((s) => s.source === "payoneer");
+  const hasUpwork = realSources.some((s) => s.source === "upwork");
+  const hasFiverr = realSources.some((s) => s.source === "fiverr");
   const trend = buildTrendGeometry(monthlyIncome.map((item) => item.amount));
   const peakValue = Math.max(...monthlyIncome.map((item) => item.amount));
   const totalTransactions = displayedSources.reduce(
@@ -159,7 +167,7 @@ export default function PayPalDashboard({ go }) {
           </span>
         </header>
 
-        {(!hasPaypal || !hasPayoneer) && (
+        {(!hasPaypal || !hasPayoneer || !hasUpwork || !hasFiverr) && (
           <div className="mt-6 flex flex-wrap gap-3">
             {!hasPaypal && (
               <button
@@ -175,6 +183,22 @@ export default function PayPalDashboard({ go }) {
                 className="rounded-full bg-[#ff4800] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#d63d00]"
               >
                 Connect Payoneer
+              </button>
+            )}
+            {!hasUpwork && (
+              <button
+                onClick={() => go && go("upwork-connect")}
+                className="rounded-full bg-[#14a800] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#108600]"
+              >
+                Connect Upwork
+              </button>
+            )}
+            {!hasFiverr && (
+              <button
+                onClick={() => go && go("fiverr-connect")}
+                className="rounded-full bg-[#00b22d] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#009325]"
+              >
+                Connect Fiverr
               </button>
             )}
           </div>
@@ -224,7 +248,15 @@ export default function PayPalDashboard({ go }) {
                     <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white">
                       {source.type === "payoneer" ? (
                         <span className="flex h-full w-full items-center justify-center bg-[#ff4800] text-base font-extrabold text-white">
-                          P
+                          Py
+                        </span>
+                      ) : source.type === "upwork" ? (
+                        <span className="flex h-full w-full items-center justify-center bg-[#14a800] text-base font-extrabold text-white">
+                          Up
+                        </span>
+                      ) : source.type === "fiverr" ? (
+                        <span className="flex h-full w-full items-center justify-center bg-[#00b22d] text-base font-extrabold text-white">
+                          Fi
                         </span>
                       ) : (
                         <img

@@ -17,6 +17,8 @@ import PayoneerConnect from "./pages/PayoneerConnect.jsx";
 import PayoneerCallback from "./pages/PayoneerCallback.jsx";
 import PayoneerDashboard from "./pages/PayoneerDashboard.jsx";
 import PayoneerSuccess from "./pages/PayoneerSuccess.jsx";
+import UpworkConnect from "./pages/UpworkConnect.jsx";
+import FiverrConnect from "./pages/FiverrConnect.jsx";
 import LenderLogin from "./pages/LenderLogin.jsx";
 import LenderDashboard from "./pages/LenderDashboard.jsx";
 import LinkedInConnect from "./pages/LinkedInConnect.jsx";
@@ -322,6 +324,8 @@ export default function App() {
           <PayoneerCallback go={go} />
         )}
         {page === "payoneer-success" && <PayoneerSuccess go={go} />}
+        {page === "upwork-connect" && <UpworkConnect go={go} />}
+        {page === "fiverr-connect" && <FiverrConnect go={go} />}
         {page === "linkedin-connect" && <LinkedInConnect go={go} />}
         {page === "linkedin-callback" && (
           <LinkedInCallback go={go} />

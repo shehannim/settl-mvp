@@ -1,5 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
+from typing import Optional
 from app.core.security import get_current_user, create_oauth_state, decode_oauth_state
 from app.core.database import get_supabase_admin
 from app.core.config import get_settings
@@ -360,6 +362,75 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
 # ==========================================
 # 🆕 NEW ENDPOINTS FOR FRONTEND INCOME HUB
 # ==========================================
+
+class ManualConnectRequest(BaseModel):
+    source: str  # upwork | fiverr
+    account_name: Optional[str] = ""
+    profile_url: Optional[str] = ""
+    monthly_avg_lkr: Optional[float] = 0
+    months: Optional[int] = 6
+
+
+ALLOWED_MANUAL_SOURCES = {"upwork", "fiverr"}
+
+
+@router.post("/manual")
+async def connect_manual(body: ManualConnectRequest, user: dict = Depends(get_current_user)):
+    """Manual freelance connect — Upwork/Fiverr have no public OAuth for
+    freelancers, so users verify via profile URL + declared average.
+    Creates a connected_sources row so scoring/confidence count it."""
+    source = (body.source or "").strip().lower()
+    if source not in ALLOWED_MANUAL_SOURCES:
+        raise HTTPException(status_code=422, detail="Source must be 'upwork' or 'fiverr'")
+    monthly_avg = max(float(body.monthly_avg_lkr or 0), 0)
+    months = min(max(int(body.months or 6), 1), 24)
+    if monthly_avg <= 0:
+        raise HTTPException(status_code=422, detail="Enter your average monthly earnings")
+
+    # Normalise against LKR 150k median freelance income (same as income engine).
+    norm = min(monthly_avg / 150_000.0, 5.0)
+    income_features = {
+        "income_cv": 0.35,
+        "income_trend_slope": 0.05,
+        "income_gap_months": 0,
+        "income_source_count": 1,
+        "income_3m_avg": float(norm),
+        "income_6m_avg": float(norm),
+        "income_yoy_growth": 0.0,
+        "manual": True,
+        "profile_url": body.profile_url or "",
+        "months_declared": months,
+    }
+
+    user_id = user["sub"]
+    db = get_supabase_admin()
+    existing = db.table("connected_sources").select("id").eq("user_id", user_id).execute()
+    base_row = {
+        "user_id": user_id,
+        "source": source,
+        "account_name": body.account_name or body.profile_url or f"{source.capitalize()} profile",
+        "transaction_count": 0,
+        "date_range_months": months,
+        "income_features": income_features,
+        "connected_at": datetime.now(timezone.utc).isoformat(),
+        "access_token_hash": "",
+    }
+    try:
+        db.table("connected_sources").upsert(
+            {**base_row, "is_primary": len(existing.data) == 0},
+            on_conflict="user_id,source",
+        ).execute()
+    except Exception:
+        db.table("connected_sources").upsert(base_row, on_conflict="user_id,source").execute()
+
+    sources = db.table("connected_sources").select("source").eq("user_id", user_id).execute()
+    try:
+        db.table("users").update({"connected_source_count": len(sources.data)}).eq("id", user_id).execute()
+    except Exception as e:
+        logger.warning("User stats update failed: %s", e)
+
+    return {"status": "success", "source": source, "source_count": len(sources.data)}
+
 
 # ✅ STEP 4 — Disconnect a source
 @router.delete("/{source_name}")

@@ -1,6 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import logoBlack from "../assets/Settl Logo Black.png";
 import paypalLogo from "../assets/paypal.png";
+
+const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 const steps = [
   { num: "01", name: "Personal Details", detail: "Completed", status: "completed" },
@@ -42,15 +45,67 @@ const platforms = [
   },
 ];
 
+const CONNECT_ROUTES = {
+  paypal: "paypal-connect",
+  payoneer: "payoneer-connect",
+  upwork: "upwork-connect",
+  fiverr: "fiverr-connect",
+};
+
 export default function IncomeStreams({ go }) {
   const [notice, setNotice] = useState("");
+  const [connected, setConnected] = useState({});
+  const [disconnecting, setDisconnecting] = useState("");
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+    axios
+      .get(`${API}/api/connect/sources`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => {
+        const map = {};
+        (res.data?.sources || []).forEach((s) => {
+          map[s.source] = true;
+        });
+        setConnected(map);
+        if (Object.keys(map).length > 0) {
+          setNotice(
+            `${Object.keys(map).length} source${Object.keys(map).length > 1 ? "s" : ""} connected — add more to boost confidence.`
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleConnect = (platform) => {
-    if (platform.id === "paypal") {
-      go("paypal-dashboard");
+    const route = CONNECT_ROUTES[platform.id];
+    if (route) {
+      go(route);
       return;
     }
-    setNotice(`${platform.name} connection integration is coming soon. PayPal is active now.`);
+    setNotice(`${platform.name} connection integration is coming soon.`);
+  };
+
+  const handleDisconnect = async (platform) => {
+    try {
+      setDisconnecting(platform.id);
+      const token = localStorage.getItem("token");
+      await axios.delete(`${API}/api/connect/${platform.id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setConnected((prev) => {
+        const next = { ...prev };
+        delete next[platform.id];
+        return next;
+      });
+      setNotice(`${platform.name} disconnected.`);
+    } catch {
+      setNotice(`Could not disconnect ${platform.name}. Try again.`);
+    } finally {
+      setDisconnecting("");
+    }
   };
 
   return (
@@ -142,10 +197,16 @@ export default function IncomeStreams({ go }) {
             </div>
 
             <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
-              {platforms.map((platform) => (
+              {platforms.map((platform) => {
+                const isConnected = !!connected[platform.id];
+                return (
                 <div
                   key={platform.id}
-                  className="group relative flex flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-xs transition hover:border-[#004fc5]/50 hover:shadow-md"
+                  className={`group relative flex flex-col justify-between rounded-2xl border bg-white p-5 shadow-xs transition hover:shadow-md ${
+                    isConnected
+                      ? "border-emerald-300 ring-1 ring-emerald-200"
+                      : "border-slate-200 hover:border-[#004fc5]/50"
+                  }`}
                 >
                   <div>
                     <div className="flex items-center justify-between">
@@ -162,25 +223,43 @@ export default function IncomeStreams({ go }) {
                           </span>
                         )}
                       </div>
-                      {platform.badge && (
-                        <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-[#004fc5]">
-                          {platform.badge}
+                      {isConnected ? (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700">
+                          ✓ Connected
                         </span>
+                      ) : (
+                        platform.badge && (
+                          <span className="rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-bold text-[#004fc5]">
+                            {platform.badge}
+                          </span>
+                        )
                       )}
                     </div>
                     <h3 className="mt-3 text-base font-bold text-slate-900">{platform.name}</h3>
                     <p className="mt-0.5 text-xs text-slate-500">{platform.detail}</p>
                   </div>
 
-                  <button
-                    type="button"
-                    onClick={() => handleConnect(platform)}
-                    className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-[#004fc5] transition group-hover:border-[#004fc5] group-hover:bg-[#004fc5] group-hover:text-white cursor-pointer"
-                  >
-                    + Connect
-                  </button>
+                  {isConnected ? (
+                    <button
+                      type="button"
+                      onClick={() => handleDisconnect(platform)}
+                      disabled={disconnecting === platform.id}
+                      className="mt-4 w-full rounded-xl border border-emerald-200 bg-emerald-50/60 py-2 text-xs font-bold text-emerald-700 transition hover:bg-red-50 hover:border-red-200 hover:text-red-600 cursor-pointer disabled:opacity-60"
+                    >
+                      {disconnecting === platform.id ? "Disconnecting…" : "Connected — Disconnect?"}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => handleConnect(platform)}
+                      className="mt-4 w-full rounded-xl border border-slate-200 bg-slate-50/80 py-2 text-xs font-bold text-[#004fc5] transition group-hover:border-[#004fc5] group-hover:bg-[#004fc5] group-hover:text-white cursor-pointer"
+                    >
+                      + Connect
+                    </button>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             {notice && (
