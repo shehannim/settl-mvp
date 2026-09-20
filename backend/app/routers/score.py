@@ -54,14 +54,17 @@ async def compute_score(user: dict = Depends(get_current_user)):
             detail="HARD_FRAUD_FLAG: Profile has been flagged. Contact support."
         )
 
-    # ── Income features — pooled across ALL income sources (paypal, payoneer).
+    # ── Income features — pooled across ALL income sources
+    # (paypal, payoneer, plus manual upwork/fiverr verification).
     # Each row's statistics are weighted by its transaction count, which
     # approximates the pooled estimate; income_source_count records how many
     # independent streams contributed (matches training semantics where level
     # and multiplicity are separate features — never sum the levels).
+    # Manual rows carry no transaction_count, so weight them by declared
+    # months of history instead of dropping them to zero.
     sources_all = db.table("connected_sources").select("*").eq("user_id", user_id).execute()
     all_sources = sources_all.data or []
-    income_rows = [s for s in all_sources if s.get("source") in ("paypal", "payoneer")]
+    income_rows = [s for s in all_sources if s.get("source") in ("paypal", "payoneer", "upwork", "fiverr")]
 
     INCOME_KEYS = (
         "income_cv", "income_trend_slope", "income_gap_months",
@@ -74,7 +77,19 @@ async def compute_score(user: dict = Depends(get_current_user)):
         return parsed
 
     if income_rows:
-        weights = [max(int(r.get("transaction_count") or 0), 1) for r in income_rows]
+        def _row_weight(r):
+            try:
+                tx = int(r.get("transaction_count") or 0)
+            except (TypeError, ValueError):
+                tx = 0
+            if tx > 0:
+                return tx
+            # Manual upwork/fiverr: weight by declared months (min 1).
+            try:
+                return max(int(r.get("date_range_months") or 0), 1)
+            except (TypeError, ValueError):
+                return 1
+        weights = [_row_weight(r) for r in income_rows]
         total_w = sum(weights)
         income_feats = {}
         for key in INCOME_KEYS:

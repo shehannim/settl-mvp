@@ -56,9 +56,12 @@ export default function Dashboard({ token, go }) {
   }, []);
 
   const syncPaypal = async () => { setSyncing(true); try { const response = await axios.post(`${API}/api/score/compute`, {}, { headers }); setScore(response.data); await loadSources(); } finally { setSyncing(false); } };
-  const scoreValue = score?.score || 745;
-  const scoreBand = ({ poor: "Poor", weak: "Fair", fair: "Fair", good: "Good", "very good": "Very Good", excellent: "Excellent" })[String(score?.band || "Good").toLowerCase()] || "Good";
-  const scoreConfidence = score?.confidence ?? 0.62;
+  // No fake baseline: a fresh account has NO score until /api/score/compute
+  // succeeds (min 300 on the 300–850 scale). Never render a hardcoded 745.
+  const hasScore = score?.score != null;
+  const scoreValue = score?.score ?? null;
+  const scoreBand = ({ poor: "Poor", weak: "Fair", fair: "Fair", good: "Good", "very good": "Very Good", excellent: "Excellent" })[String(score?.band || "").toLowerCase()] || null;
+  const scoreConfidence = score?.confidence ?? null;
   const verification = kycVerified ? "verified" : billStatus === "needs_review" ? "needs_review" : "pending";
   const improvementTip = score?.improvement_tips?.[0]?.body || (paypal || payoneer ? undefined : "Connect a verified income source to strengthen your score");
   const incomeRows = [
@@ -72,9 +75,28 @@ export default function Dashboard({ token, go }) {
   const sourceRows = incomeRows;
   const bills = [{ name: "CEB Electricity", amount: "Upload to verify", logo: cebLogo }, { name: "SLT Fibre Broadband", amount: "Upload to verify", logo: sltLogo }, { name: "Dialog Postpaid", amount: "Upload to verify", logo: dialogLogo }];
 
-  return <div className="min-h-[calc(100vh-72px)] bg-[#f8f9ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">{showCollapsedScore && <div className="fixed left-1/2 top-[84px] z-20 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 sm:w-[420px]"><ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} collapsed /></div>}<main className="mx-auto max-w-[1180px]"><header className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Credit Score Insights</h1></div>{kycVerified ? <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#004fc5]">Verified identity</span> : <button onClick={() => go("kyc")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">Verify identity</button>}</header>
+  return <div className="min-h-[calc(100vh-72px)] bg-[#f8f9ff] px-4 py-6 text-slate-900 sm:px-6 lg:px-8">{showCollapsedScore && hasScore && <div className="fixed left-1/2 top-[84px] z-20 w-[calc(100%-2rem)] max-w-md -translate-x-1/2 sm:w-[420px]"><ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} collapsed /></div>}<main className="mx-auto max-w-[1180px]"><header className="mb-6 flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-extrabold tracking-tight sm:text-3xl">Credit Score Insights</h1></div>{kycVerified ? <span className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-bold text-[#004fc5]">Verified identity</span> : <button onClick={() => go("kyc")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">Verify identity</button>}</header>
     <section ref={heroRef}>
-      <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
+      {hasScore ? (
+        <ScoreHeroCard score={scoreValue} band={scoreBand} confidence={scoreConfidence} verification={verification} improvementTip={improvementTip} />
+      ) : (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 sm:p-10 shadow-[0_20px_55px_rgba(0,79,197,0.08)]">
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-slate-400">Your Settl Score</p>
+          <h2 className="mt-3 text-2xl font-extrabold tracking-tight text-slate-900">No score yet — build yours from 300</h2>
+          <p className="mt-2 text-sm leading-relaxed text-slate-500">
+            Scores range 300–850 and grow as you add verified income and repayment signals.
+            Connect at least one income source, then recalibrate.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <button onClick={() => go("income-streams")} className="rounded-full bg-[#004fc5] px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-[#003a94]">
+              Connect income →
+            </button>
+            <button onClick={() => go("score-calibration")} className="rounded-full border border-slate-200 px-5 py-2.5 text-xs font-bold text-slate-700 hover:bg-slate-50">
+              Recalibrate score
+            </button>
+          </div>
+        </div>
+      )}
     </section>
     <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] lg:col-span-6"><SectionTitle title="Connected Income Sources" subtitle="Aggregated income signals and consistency" />{sourceRows.map((row) => <div key={row.name} className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white">{row.logo ? <img src={row.logo} alt={row.alt} className="h-full w-full object-contain p-1.5" /> : <span className="flex h-full w-full items-center justify-center bg-[#ff4800] text-sm font-extrabold text-white">P</span>}</span><div className="min-w-0"><p className="truncate text-sm font-bold">{row.name} <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] text-[#004fc5]">{row.status}</span></p><p className="truncate text-[11px] text-slate-400">{row.detail}</p></div></div>{row.connected ? <button onClick={syncPaypal} disabled={syncing} className="rounded-full border border-blue-200 px-3 py-1.5 text-xs font-bold text-[#004fc5] hover:bg-blue-50">{syncing ? "Syncing…" : "Sync"}</button> : <button onClick={() => go(row.connectPage)} className="rounded-full bg-[#004fc5] px-3 py-1.5 text-xs font-bold text-white">Connect</button>}</div>)}<button onClick={() => go("paypal-dashboard")} className="mt-4 text-xs font-bold text-[#004fc5] hover:underline">View all streams →</button></div>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] lg:col-span-6"><SectionTitle title="Latest Utility Bills" subtitle="Repayment signals calibrated for score weight" action="Upload bill" onClick={() => go("bill-upload")} />{bills.map((bill) => <div key={bill.name} className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white"><img src={bill.logo} alt="" className="h-full w-full object-contain p-1" /></span><div><p className="text-xs font-bold">{bill.name}</p><p className="text-[10px] text-slate-400">{billStatus === "verified" ? "Verified repayment signal" : bill.amount}</p></div></div><span className="text-[10px] font-bold text-[#004fc5]">{billStatus === "verified" ? "Verified" : "Pending"}</span></div>)}<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><span className="text-xs text-slate-500">View other utility bills</span><button onClick={() => go("paypal-dashboard")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white">View income sources</button></div></div></section>

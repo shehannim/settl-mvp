@@ -17,6 +17,7 @@ export default function ScoreCalibration({ go, token }) {
   const [progress, setProgress] = useState(1);
   const [statusMessage, setStatusMessage] = useState("Our AI is calibrating your score");
   const [scoreReady, setScoreReady] = useState(false);
+  const [computeError, setComputeError] = useState("");
   const authToken = token || localStorage.getItem("token");
   const scoreReadyRef = useRef(false);
 
@@ -33,7 +34,17 @@ export default function ScoreCalibration({ go, token }) {
           );
         }
       } catch (err) {
-        console.warn("Score computation request finished with fallback:", err);
+        // Never fake a score: surface thin-file / KYC blocks in-app.
+        if (!isMounted) return;
+        const detail = err.response?.data?.detail || "";
+        if (err.response?.status === 422 || detail.includes("INSUFFICIENT_DATA")) {
+          setComputeError("Not enough verified data yet — connect at least one income source first.");
+        } else if (err.response?.status === 403 || detail.includes("KYC")) {
+          setComputeError("Complete identity verification before scoring.");
+        } else {
+          setComputeError("Could not compute a score right now. Try again after connecting a source.");
+        }
+        console.warn("Score computation blocked:", detail || err.message);
       } finally {
         if (isMounted) {
           setScoreReady(true);
@@ -77,11 +88,12 @@ export default function ScoreCalibration({ go, token }) {
 
   // Completion navigation lives here — once, with cleanup, so StrictMode
   // double-invocation can't double-navigate or leak timers.
+  // On compute failure we stay put so the error + CTA below is visible.
   useEffect(() => {
-    if (!scoreReady || progress < 100) return undefined;
+    if (!scoreReady || progress < 100 || computeError) return undefined;
     const timer = window.setTimeout(() => go("dashboard"), 1000);
     return () => window.clearTimeout(timer);
-  }, [scoreReady, progress, go]);
+  }, [scoreReady, progress, computeError, go]);
 
   // Update status messages dynamically as progress advances
   useEffect(() => {
@@ -188,6 +200,25 @@ export default function ScoreCalibration({ go, token }) {
             {statusMessage}
           </span>
         </div>
+
+        {scoreReady && progress >= 100 && computeError && (
+          <div className="mt-5 w-full max-w-sm rounded-2xl border border-amber-200/60 bg-white/95 p-4 text-center shadow-lg">
+            <p className="text-sm font-bold text-slate-800">{computeError}</p>
+            <p className="mt-1 text-xs text-slate-500">Scores start at 300 and grow with verified data.</p>
+            <button
+              onClick={() => go("income-streams")}
+              className="mt-3 w-full rounded-full bg-[#004fc5] py-2.5 text-sm font-bold text-white hover:bg-[#003a94]"
+            >
+              Connect income →
+            </button>
+            <button
+              onClick={() => go("dashboard")}
+              className="mt-2 w-full py-1.5 text-xs font-bold uppercase tracking-widest text-slate-400 hover:text-slate-700"
+            >
+              View dashboard anyway
+            </button>
+          </div>
+        )}
       </footer>
     </main>
   );
