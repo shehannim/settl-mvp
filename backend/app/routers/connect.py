@@ -102,8 +102,10 @@ def _demo_paypal_transactions(months: int = 12) -> list:
 
     Shape matches _normalise_paypal_transactions() so the income engine,
     scoring and dashboard all treat it like real history. Amounts target
-    ~USD 750/mo (~LKR 230k) with mild variance + gentle upward trend so
-    the demo score visibly climbs above the 300 baseline.
+    ~USD 750/mo (~LKR 230k) with mild variance + gentle upward trend.
+    Only 4 months: a short history keeps the honest initial score in the
+    500s (weak) with low confidence — the demo story is earning the climb
+    to 600+, not starting there.
     """
     import random
     from datetime import date
@@ -187,7 +189,7 @@ async def paypal_callback(request: Request, code: str, state: str):
         # (>= 6 txns) is never touched. Disable via DEMO_PAYPAL_SEED=false.
         demo_seeded = False
         if settings.DEMO_PAYPAL_SEED and len(transactions) < 6:
-            transactions = _demo_paypal_transactions(months=12)
+            transactions = _demo_paypal_transactions(months=4)
             demo_seeded = True
             logger.info("PayPal demo seed: %d demo txns for user %s", len(transactions), user_id)
             if not profile.get("name"):
@@ -251,36 +253,38 @@ async def paypal_callback(request: Request, code: str, state: str):
 
         # 🧪 DEMO: seed a clearly-marked demo score so the dashboard and
         # lender portal show a number immediately after a sandbox connect.
+        # Deliberately modest (548 weak, 0.24 confidence): the demo story is
+        # EARNING the climb via bills + sources, not starting high.
         # model_version "demo-1.0" flags it; any real /score/compute row is
         # newer and wins (result is ordered by computed_at desc).
         if demo_seeded:
             try:
                 db.table("scores").insert({
                     "user_id": user_id,
-                    "score": 612,
-                    "band": "fair",
-                    "confidence": 0.42,
+                    "score": 548,
+                    "band": "weak",
+                    "confidence": 0.17,
                     "confidence_breakdown": {
                         "source_breadth": 0.25,
-                        "history_length": 0.55,
+                        "history_length": 0.30,
                         "data_completeness": 0.5,
-                        "raw_confidence": 0.42,
+                        "raw_confidence": 0.33,
                         "fraud_adjustment": 1.0,
                         "identity_consistency": 0.5,
                         "demo": True,
                     },
                     "categories": [
-                        {"category": "income", "score": 61.0, "weight": 0.35},
-                        {"category": "payment", "score": 57.5, "weight": 0.30},
-                        {"category": "platform", "score": 59.0, "weight": 0.20},
-                        {"category": "footprint", "score": 52.0, "weight": 0.15},
+                        {"category": "income", "score": 52.0, "weight": 0.35},
+                        {"category": "payment", "score": 48.0, "weight": 0.30},
+                        {"category": "platform", "score": 50.0, "weight": 0.20},
+                        {"category": "footprint", "score": 45.0, "weight": 0.15},
                     ],
                     "top_positive_factors": [
                         {"feature_name": "income_6m_avg", "display_label": "6-month average income",
-                         "shap_value": 11.0, "direction": "positive",
-                         "reason_code": "Steady demo freelance payouts over 12 months."},
+                         "shap_value": 8.0, "direction": "positive",
+                         "reason_code": "Steady demo freelance payouts over 4 months."},
                         {"feature_name": "income_trend_slope", "display_label": "Income growth trend",
-                         "shap_value": 5.5, "direction": "positive",
+                         "shap_value": 4.0, "direction": "positive",
                          "reason_code": "Demo income trends upward."},
                     ],
                     "top_negative_factors": [

@@ -21,7 +21,14 @@ export default function PayoneerSuccess({ go }) {
       axios
         .get(`${API}/api/connect/sources`, { headers: { Authorization: `Bearer ${authToken}` } })
         .then((res) => {
-          if (!(res.data?.sources || []).some((s) => s.source === "payoneer")) setLinkMissing(true);
+          const found = (res.data?.sources || []).some((s) => s.source === "payoneer");
+          if (!found) {
+            setLinkMissing(true);
+          } else {
+            try {
+              localStorage.setItem("last_oauth_success", JSON.stringify({ provider: "payoneer", at: Date.now() }));
+            } catch { /* storage unavailable */ }
+          }
         })
         .catch(() => {})
         .finally(() => {

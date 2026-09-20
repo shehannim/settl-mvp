@@ -25,6 +25,8 @@ export default function Dashboard({ token, go }) {
   const payoneer = sources.find((source) => source.source === "payoneer");
 
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [oauthHint, setOauthHint] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const loadSources = useCallback(async () => {
     try {
@@ -91,6 +93,40 @@ export default function Dashboard({ token, go }) {
     return () => { cancelled = true; window.clearTimeout(timer); };
   }, [loadScore, loadSources, authToken]);
 
+  // Refetch connections when returning to the tab — OAuth happens in other
+  // tabs/windows, so mount-only loading can show a stale "Connect" state.
+  useEffect(() => {
+    const refresh = () => { loadSources(); };
+    const onVisibility = () => { if (!document.hidden) loadSources(); };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [loadSources]);
+
+  // Post-OAuth reconciliation: the success screen records each verified
+  // connect. If that provider still isn't in our sources, say so plainly
+  // (usually a different signed-in account) instead of a silent Connect.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("last_oauth_success");
+      if (!raw) return;
+      const { provider, at } = JSON.parse(raw);
+      if (!provider || Date.now() - (at || 0) > 15 * 60 * 1000) {
+        localStorage.removeItem("last_oauth_success");
+        return;
+      }
+      if (sources.some((s) => s.source === provider)) {
+        localStorage.removeItem("last_oauth_success");
+        setOauthHint(null);
+      } else {
+        setOauthHint(provider);
+      }
+    } catch { /* corrupted flag — ignore */ }
+  }, [sources]);
+
   useEffect(() => {
     const hero = heroRef.current;
     if (!hero) return undefined;
@@ -134,6 +170,22 @@ export default function Dashboard({ token, go }) {
           className="rounded-full bg-red-600 px-4 py-2 text-xs font-bold text-white hover:bg-red-700"
         >
           Sign in again
+        </button>
+      </div>
+    )}
+    {oauthHint && (
+      <div className="mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-3.5">
+        <p className="min-w-0 flex-1 text-sm font-semibold text-amber-800">
+          {oauthHint === "paypal" ? "PayPal" : "Payoneer"} was just connected but isn&apos;t showing here.
+          You&apos;re signed in as {localStorage.getItem("email") || "this account"} — if you approved
+          with a different account, sign out and back in with that one.
+        </p>
+        <button
+          onClick={async () => { setRefreshing(true); await loadSources(); setRefreshing(false); }}
+          disabled={refreshing}
+          className="rounded-full bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 disabled:opacity-60"
+        >
+          {refreshing ? "Checking…" : "Refresh status"}
         </button>
       </div>
     )}
@@ -204,7 +256,7 @@ export default function Dashboard({ token, go }) {
         </div>
       )}
     </section>
-    <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] lg:col-span-6"><SectionTitle title="Connected Income Sources" subtitle="Aggregated income signals and consistency" />{sourceRows.map((row) => <div key={row.name} className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white">{row.logo ? <img src={row.logo} alt={row.alt} className="h-full w-full object-contain p-1.5" /> : <span className="flex h-full w-full items-center justify-center bg-[#ff4800] text-sm font-extrabold text-white">P</span>}</span><div className="min-w-0"><p className="truncate text-sm font-bold">{row.name} <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] text-[#004fc5]">{row.status}</span></p><p className="truncate text-[11px] text-slate-400">{row.detail}</p></div></div>{row.connected ? <button onClick={syncPaypal} disabled={syncing} className="rounded-full border border-blue-200 px-3 py-1.5 text-xs font-bold text-[#004fc5] hover:bg-blue-50">{syncing ? "Syncing…" : "Sync"}</button> : <button onClick={() => go(row.connectPage)} className="rounded-full bg-[#004fc5] px-3 py-1.5 text-xs font-bold text-white">Connect</button>}</div>)}<button onClick={() => go("paypal-dashboard")} className="mt-4 text-xs font-bold text-[#004fc5] hover:underline">View all streams →</button></div>
+    <section className="mt-5 grid grid-cols-1 gap-5 lg:grid-cols-12"><div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] lg:col-span-6"><SectionTitle title="Connected Income Sources" subtitle="Aggregated income signals and consistency" />{sourceRows.map((row) => <div key={row.name} className="mt-3 flex items-center justify-between gap-3 rounded-xl border border-slate-100 bg-slate-50/70 p-3.5"><div className="flex min-w-0 items-center gap-3"><span className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white">{row.logo ? <img src={row.logo} alt={row.alt} className="h-full w-full object-contain p-1.5" /> : <span className="flex h-full w-full items-center justify-center bg-[#ff4800] text-sm font-extrabold text-white">P</span>}</span><div className="min-w-0"><p className="truncate text-sm font-bold">{row.name} <span className="ml-1 rounded-full bg-blue-50 px-1.5 py-0.5 text-[9px] text-[#004fc5]">{row.status}</span></p><p className="truncate text-[11px] text-slate-400">{row.detail}</p></div></div>{row.connected ? <button onClick={syncPaypal} disabled={syncing} className="rounded-full border border-blue-200 px-3 py-1.5 text-xs font-bold text-[#004fc5] hover:bg-blue-50">{syncing ? "Syncing…" : "Sync"}</button> : <button onClick={() => go(row.connectPage)} className="rounded-full bg-[#004fc5] px-3 py-1.5 text-xs font-bold text-white">Connect</button>}</div>)}<div className="mt-4 flex items-center gap-4"><button onClick={async () => { setRefreshing(true); await loadSources(); setRefreshing(false); }} disabled={refreshing} className="text-xs font-bold text-slate-500 hover:text-[#004fc5] hover:underline disabled:opacity-60">{refreshing ? "Refreshing…" : "↻ Refresh status"}</button><button onClick={() => go("paypal-dashboard")} className="text-xs font-bold text-[#004fc5] hover:underline">View all streams →</button></div></div>
       <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] lg:col-span-6"><SectionTitle title="Latest Utility Bills" subtitle="Repayment signals calibrated for score weight" action="Upload bill" onClick={() => go("bill-upload")} />{bills.map((bill) => <div key={bill.name} className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3"><div className="flex items-center gap-3"><span className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-lg border border-slate-100 bg-white"><img src={bill.logo} alt="" className="h-full w-full object-contain p-1" /></span><div><p className="text-xs font-bold">{bill.name}</p><p className="text-[10px] text-slate-400">{billStatus === "verified" ? "Verified repayment signal" : bill.amount}</p></div></div><span className="text-[10px] font-bold text-[#004fc5]">{billStatus === "verified" ? "Verified" : "Pending"}</span></div>)}<div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4"><span className="text-xs text-slate-500">View other utility bills</span><button onClick={() => go("paypal-dashboard")} className="rounded-full bg-[#004fc5] px-4 py-2 text-xs font-bold text-white">View income sources</button></div></div></section>
   </main></div>;
 }

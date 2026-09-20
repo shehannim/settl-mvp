@@ -24,7 +24,17 @@ export default function PayPalSuccess({ go }) {
       axios
         .get(`${API}/api/connect/sources`, { headers: { Authorization: `Bearer ${authToken}` } })
         .then((res) => {
-          if (!(res.data?.sources || []).some((s) => s.source === "paypal")) setLinkMissing(true);
+          const found = (res.data?.sources || []).some((s) => s.source === "paypal");
+          if (!found) {
+            setLinkMissing(true);
+          } else {
+            // Remember the successful connect so the main dashboard can
+            // reconcile (e.g. multi-account confusion) instead of silently
+            // showing Connect again.
+            try {
+              localStorage.setItem("last_oauth_success", JSON.stringify({ provider: "paypal", at: Date.now() }));
+            } catch { /* storage unavailable */ }
+          }
         })
         .catch(() => {})
         .finally(() => {
