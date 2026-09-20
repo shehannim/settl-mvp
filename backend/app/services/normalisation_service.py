@@ -131,7 +131,7 @@ def compute_income_features(monthly: pd.DataFrame) -> Dict:
     Computes the 7 income stability features from monthly income data.
     All values normalised to 0–1 or reasonable numeric ranges.
     """
-    if monthly.empty or len(monthly) < 2:
+    if monthly.empty:
         return {
             "income_cv": 1.0,
             "income_trend_slope": 0.0,
@@ -139,6 +139,24 @@ def compute_income_features(monthly: pd.DataFrame) -> Dict:
             "income_source_count": 1,
             "income_3m_avg": 0.0,
             "income_6m_avg": 0.0,
+            "income_yoy_growth": 0.0,
+        }
+
+    if len(monthly) < 2:
+        # One month of real payouts: an active new earner, NOT a dead account.
+        # Stability is unknown (neutral 0.5, not max penalty), no gaps observed,
+        # and level features use the single month as run-rate. The model then
+        # scores present earning power instead of punishing short history
+        # (history length is captured separately by date_range_months).
+        MEDIAN_LKR = 150_000
+        run_rate = float(monthly["income_lkr"].values[0]) / MEDIAN_LKR
+        return {
+            "income_cv": 0.5,
+            "income_trend_slope": 0.0,
+            "income_gap_months": 0,
+            "income_source_count": 1,
+            "income_3m_avg": float(min(run_rate, 5.0)),
+            "income_6m_avg": float(min(run_rate, 5.0)),
             "income_yoy_growth": 0.0,
         }
 
