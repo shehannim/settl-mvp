@@ -54,26 +54,26 @@ PERSONAS = [
         "email": "sanduni.p.demo@settl-demo.com",
         "full_name": "Sanduni Perera",
         "nic_number": "199412345678",
-        "identity_consistency_score": 0.8,
+        "identity_consistency_score": 0.85,
         "digital_tenure_months": 28,
         "sources": [
             {"source": "payoneer", "account_name": "Upwork payouts",
              "transaction_count": 96, "date_range_months": 28,
              "income_features": {
-                 "income_cv": 0.45, "income_trend_slope": 0.02,
-                 "income_gap_months": 1, "income_source_count": 2,
-                 "income_3m_avg": 1.1, "income_6m_avg": 1.0,
-                 "income_yoy_growth": 0.05}},
+                 "income_cv": 0.35, "income_trend_slope": 0.05,
+                 "income_gap_months": 0, "income_source_count": 2,
+                 "income_3m_avg": 1.3, "income_6m_avg": 1.2,
+                 "income_yoy_growth": 0.1}},
             {"source": "paypal", "account_name": "Direct clients",
              "transaction_count": 34, "date_range_months": 16,
              "income_features": {
-                 "income_cv": 0.45, "income_trend_slope": 0.02,
-                 "income_gap_months": 1, "income_source_count": 2,
-                 "income_3m_avg": 1.1, "income_6m_avg": 1.0,
-                 "income_yoy_growth": 0.05}},
+                 "income_cv": 0.35, "income_trend_slope": 0.05,
+                 "income_gap_months": 0, "income_source_count": 2,
+                 "income_3m_avg": 1.3, "income_6m_avg": 1.2,
+                 "income_yoy_growth": 0.1}},
         ],
-        # 20 bills, 14 on time -> 0.70 -> good band
-        "bills_on_time": [True] * 14 + [False] * 6,
+        # 20 bills, 16 on time -> 0.80 -> good band (live-tuned on prod model)
+        "bills_on_time": [True] * 16 + [False] * 4,
         "biller": "CEB",
     },
     {
