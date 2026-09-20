@@ -101,7 +101,7 @@ export const DEMO_PROFILES = [
     },
     video_beats: [
       "Show the 6 zero months on the income chart — then the score that still exists.",
-      "Contrast: CRIB screen = No-Hit vs Settl screen = 308 with reasons.",
+      "Contrast: CRIB screen = No-Hit vs Settl screen = 305 with reasons.",
       "Close on tip #1 as the 'path to 550' hook.",
     ],
   },
