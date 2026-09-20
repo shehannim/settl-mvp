@@ -1,9 +1,23 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import axios from "axios";
 import logo from "../assets/Settl Logo.png";
 
 const API =
   import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
+
+function loadGisScript() {
+  if (window.google?.accounts?.oauth2) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    const tag = document.createElement("script");
+    tag.src = "https://accounts.google.com/gsi/client";
+    tag.async = true;
+    tag.defer = true;
+    tag.onload = () => resolve(!!window.google?.accounts?.oauth2);
+    tag.onerror = () => resolve(false);
+    document.head.appendChild(tag);
+  });
+}
 
 export default function Auth({ onAuthenticated, go }) {
   const [mode, setMode] = useState("register");
@@ -15,19 +29,56 @@ export default function Auth({ onAuthenticated, go }) {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const codeClientRef = useRef(null);
   const isRegister = mode === "register";
 
-  // SSO integrations
-  const onGoogleAuth = () => {
-    // TODO: Wire to Google OAuth provider
-    // Google SSO verifies email automatically, bypassing OTP to PDPA Data Consent
-    onAuthenticated({
-      accessToken: "demo_google_sso_token",
-      id: "demo_google_user",
-      email: "google.user@example.com",
-      name: "Google User",
-      signupMethod: "google",
-    });
+  // Real Google sign-in (GIS auth-code flow). The popup returns a one-time
+  // code; the client SECRET never leaves the backend, which exchanges the
+  // code, verifies Google's claims, and issues our own JWT. No demo tokens.
+  const onGoogleAuth = async () => {
+    setError("");
+    if (!GOOGLE_CLIENT_ID) {
+      setError("Google sign-in isn't configured on this deployment yet.");
+      return;
+    }
+    setGoogleLoading(true);
+    try {
+      const ready = await loadGisScript();
+      if (!ready) throw new Error("Google library failed to load");
+      if (!codeClientRef.current) {
+        codeClientRef.current = window.google.accounts.oauth2.initCodeClient({
+          client_id: GOOGLE_CLIENT_ID,
+          scope: "openid email profile",
+          ux_mode: "popup",
+          callback: async (resp) => {
+            try {
+              if (!resp?.code) throw new Error("No code from Google");
+              const result = await axios.post(`${API}/api/auth/google`, { code: resp.code });
+              onAuthenticated({
+                accessToken: result.data.access_token,
+                id: result.data.user_id,
+                email: result.data.email || "",
+                name: "",
+                settlId: result.data.settl_id || "",
+                signupMethod: "google",
+              });
+            } catch (requestError) {
+              setError(
+                requestError.response?.data?.detail ||
+                  "Google sign-in failed. Please try again."
+              );
+            } finally {
+              setGoogleLoading(false);
+            }
+          },
+        });
+      }
+      codeClientRef.current.requestCode();
+    } catch {
+      setError("Google sign-in failed to start. Please try again.");
+      setGoogleLoading(false);
+    }
   };
 
   const onAppleAuth = () => {
@@ -217,12 +268,13 @@ export default function Auth({ onAuthenticated, go }) {
                 <button
                   type="button"
                   onClick={onGoogleAuth}
-                  className="relative flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:border-slate-300 cursor-pointer"
+                  disabled={googleLoading}
+                  className="relative flex w-full items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 shadow-xs transition hover:bg-slate-50 hover:border-slate-300 cursor-pointer disabled:opacity-60"
                 >
                   <span className="absolute left-5 flex items-center">
                     <GoogleIcon />
                   </span>
-                  <span>Continue with Google</span>
+                  <span>{googleLoading ? "Waiting for Google…" : "Continue with Google"}</span>
                 </button>
                 <button
                   type="button"

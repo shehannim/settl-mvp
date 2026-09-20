@@ -1,29 +1,29 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from app.models.schemas import RegisterRequest, LoginRequest, LenderLoginRequest, TokenResponse
+from app.models.schemas import (
+    RegisterRequest, LoginRequest, LenderLoginRequest, TokenResponse,
+    GoogleLoginRequest,
+)
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.core.database import get_supabase_admin
+from app.core.config import get_settings
+import base64
+import httpx
+import json
+import logging
+import secrets
+import time
 import uuid
 from datetime import datetime
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
-@router.post("/register", response_model=TokenResponse)
-async def register(body: RegisterRequest):
-    db = get_supabase_admin()
-    email = body.email.lower().strip()
-
-    # Check if email already exists
-    existing = db.table("users").select("id").eq("email", email).execute()
-    if existing.data:
-        raise HTTPException(status_code=400, detail="Email already registered")
-
+async def _create_user_with_settl_id(db, *, email: str, full_name: str, password_hash: str):
+    """Insert a user with collision-retried Settl ID. Returns (user_id, settl_id)."""
     user_id = str(uuid.uuid4())
     year = datetime.now().year
-    password_hash = hash_password(body.password)
-
-    # 6-hex suffix has 16M combinations — collisions are theoretical, but a
-    # clash must never 500 a registration. Retry with a fresh suffix.
     settl_id = None
     last_error: Exception | None = None
     for _ in range(5):
@@ -33,7 +33,7 @@ async def register(body: RegisterRequest):
                 "id": user_id,
                 "settl_id": candidate,
                 "email": email,
-                "full_name": body.full_name.strip(),
+                "full_name": full_name.strip(),
                 "password_hash": password_hash,
                 "kyc_verified": False,
                 "otp_verified": False,
@@ -54,9 +54,26 @@ async def register(body: RegisterRequest):
             status_code=503,
             detail=f"Could not allocate a Settl ID, please retry. ({last_error})",
         )
+    return user_id, settl_id
+
+
+@router.post("/register", response_model=TokenResponse)
+async def register(body: RegisterRequest):
+    db = get_supabase_admin()
+    email = body.email.lower().strip()
+
+    # Check if email already exists
+    existing = db.table("users").select("id").eq("email", email).execute()
+    if existing.data:
+        raise HTTPException(status_code=400, detail="Email already registered")
+
+    user_id, settl_id = await _create_user_with_settl_id(
+        db, email=email, full_name=body.full_name,
+        password_hash=hash_password(body.password),
+    )
 
     token = create_access_token({"sub": user_id, "email": email}, role="user")
-    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id)
+    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id, email=email)
 
 
 @router.post("/login", response_model=TokenResponse)
@@ -73,7 +90,7 @@ async def login(body: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token({"sub": user["id"], "email": user["email"]}, role="user")
-    return TokenResponse(access_token=token, user_id=user["id"], role="user", settl_id=user.get("settl_id"))
+    return TokenResponse(access_token=token, user_id=user["id"], role="user", settl_id=user.get("settl_id"), email=user.get("email"))
 
 
 @router.get("/me")
@@ -91,6 +108,80 @@ async def get_profile(user: dict = Depends(get_current_user)):
         "full_name": row.get("full_name"),
         "kyc_verified": row.get("kyc_verified", False),
     }
+
+
+@router.post("/google", response_model=TokenResponse)
+async def google_login(body: GoogleLoginRequest):
+    """Google sign-in via GIS auth-code flow.
+
+    Frontend sends the one-time `code` from the GIS popup; the secret never
+    leaves the backend. We exchange it at Google, verify aud/expiry/email,
+    then find-or-create the user and issue OUR JWT (role user).
+    """
+    settings = get_settings()
+    if not settings.GOOGLE_CLIENT_ID or not settings.GOOGLE_CLIENT_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="GOOGLE_NOT_CONFIGURED: set GOOGLE_CLIENT_ID/SECRET on the backend.",
+        )
+
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                "https://oauth2.googleapis.com/token",
+                data={
+                    "code": body.code,
+                    "client_id": settings.GOOGLE_CLIENT_ID,
+                    "client_secret": settings.GOOGLE_CLIENT_SECRET,
+                    "redirect_uri": "postmessage",
+                    "grant_type": "authorization_code",
+                },
+            )
+    except Exception as e:
+        logger.warning("Google token exchange transport failed: %s", e)
+        raise HTTPException(status_code=502, detail="Google exchange failed")
+
+    if resp.status_code != 200:
+        logger.warning("Google token exchange rejected: %s", resp.text[:200])
+        raise HTTPException(status_code=401, detail="Invalid Google authorization code")
+
+    id_token = resp.json().get("id_token", "")
+    try:
+        payload_b64 = id_token.split(".")[1]
+        payload_b64 += "=" * (-len(payload_b64) % 4)
+        claims = json.loads(base64.urlsafe_b64decode(payload_b64).decode())
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid Google identity token")
+
+    # Claims come over a server-to-server TLS exchange authenticated with OUR
+    # secret, but still verify audience, expiry and email before trusting.
+    if claims.get("aud") != settings.GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=401, detail="Google token audience mismatch")
+    if int(claims.get("exp", 0)) < int(time.time()):
+        raise HTTPException(status_code=401, detail="Google token expired")
+    if claims.get("email_verified") is not True:
+        raise HTTPException(status_code=401, detail="Google email not verified")
+
+    email = str(claims.get("email", "")).lower().strip()
+    full_name = str(claims.get("name") or "").strip() or email.split("@")[0]
+    if not email:
+        raise HTTPException(status_code=401, detail="Google account has no email")
+
+    db = get_supabase_admin()
+    existing = db.table("users").select("id, settl_id").eq("email", email).execute()
+    if existing.data:
+        user_id = existing.data[0]["id"]
+        settl_id = existing.data[0].get("settl_id")
+    else:
+        # Unusable password hash: Google users can never password-login.
+        # 256-bit random — infeasible to guess, and login still checks it.
+        user_id, settl_id = await _create_user_with_settl_id(
+            db, email=email, full_name=full_name,
+            password_hash=hash_password(secrets.token_hex(32)),
+        )
+
+    token = create_access_token({"sub": user_id, "email": email}, role="user")
+    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id, email=email)
 
 
 @router.post("/lender/login", response_model=TokenResponse)

@@ -16,12 +16,17 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class GoogleLoginRequest(BaseModel):
+    code: str = Field(min_length=4, description="One-time GIS popup auth code")
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user_id: str
     role: str
     settl_id: Optional[str] = None
+    email: Optional[str] = None
 
 
 # ── KYC ──────────────────────────────────────────────────────────────
