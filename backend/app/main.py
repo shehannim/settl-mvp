@@ -40,8 +40,6 @@ _configured = [o.strip().rstrip("/") for o in (settings.FRONTEND_URL or "").spli
 _cors_origins = list({_configured[0] if _configured else "http://localhost:5173",
                       *_configured,
                       "http://localhost:5173", "http://127.0.0.1:5173"})
-if settings.DEMO_RETURN_OTP:
-    logger.warning("DEMO_RETURN_OTP is enabled — OTPs will be returned in API responses. Never enable in production.")
 if settings.SECRET_KEY == "change-this-in-production":
     logger.warning("SECRET_KEY is using the default value. Set a strong SECRET_KEY in production.")
 

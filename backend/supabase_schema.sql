@@ -162,3 +162,4 @@ ALTER TABLE pending_bills ADD COLUMN IF NOT EXISTS metadata JSONB;
 ALTER TABLE verified_bills ADD COLUMN IF NOT EXISTS metadata JSONB;
 ALTER TABLE pending_bills ADD COLUMN IF NOT EXISTS file_sha256 TEXT;
 CREATE UNIQUE INDEX IF NOT EXISTS uq_pending_user_sha ON pending_bills(user_id, file_sha256);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;

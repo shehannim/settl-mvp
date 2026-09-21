@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.schemas import (
     RegisterRequest, LoginRequest, LenderLoginRequest, TokenResponse,
-    GoogleLoginRequest,
+    GoogleLoginRequest, EmailCodeRequest,
 )
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.core.database import get_supabase_admin
@@ -91,6 +91,50 @@ async def login(body: LoginRequest):
 
     token = create_access_token({"sub": user["id"], "email": user["email"]}, role="user")
     return TokenResponse(access_token=token, user_id=user["id"], role="user", settl_id=user.get("settl_id"), email=user.get("email"))
+
+
+@router.post("/email/request")
+async def request_email_code(user: dict = Depends(get_current_user)):
+    """Sends a signup verification code to the user's own email."""
+    from app.services.kyc_service import generate_otp as _gen
+    from app.services.email_service import send_otp_email, EmailNotConfigured
+
+    user_id = user["sub"]
+    db = get_supabase_admin()
+    result = db.table("users").select("email").eq("id", user_id).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="User not found")
+    email = result.data[0]["email"]
+
+    otp = _gen(user_id, email, slot="email")
+    try:
+        await send_otp_email(email, otp, purpose="verification")
+    except EmailNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        logger.exception("Signup OTP email failed")
+        raise HTTPException(status_code=502, detail="Could not send verification code, try again.")
+    return {"success": True, "message": "Verification code sent to your email."}
+
+
+@router.post("/email/verify")
+async def verify_email_code(body: EmailCodeRequest, user: dict = Depends(get_current_user)):
+    """Confirms the signup code and stamps users.email_verified_at."""
+    from app.services.kyc_service import verify_otp as _verify
+
+    user_id = user["sub"]
+    ok, err = _verify(user_id, body.otp_code, slot="email")
+    if not ok:
+        raise HTTPException(status_code=422, detail=err)
+
+    db = get_supabase_admin()
+    try:
+        db.table("users").update(
+            {"email_verified_at": datetime.now(timezone.utc).isoformat()}
+        ).eq("id", user_id).execute()
+    except Exception as e:
+        logger.warning("email_verified_at update failed (run migration): %s", e)
+    return {"success": True, "message": "Email verified successfully."}
 
 
 @router.get("/me")

@@ -1,13 +1,12 @@
 import { useState } from "react";
 import axios from "axios";
 import logo from "../assets/Settl Logo.png";
-import { verifyLender } from "../data/lenderDemo.js";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
 export default function LenderLogin({ go }) {
-  const [email, setEmail] = useState("credit@ruhunafinance.demo");
-  const [password, setPassword] = useState("demo1234");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -16,50 +15,28 @@ export default function LenderLogin({ go }) {
     setLoading(true);
     setError("");
 
-    // Live backend first (real lender accounts in the lenders table),
-    // then the hardcoded demo directory for walkthroughs.
+    // Live lender accounts only (lenders table). Accounts are provisioned
+    // by an admin — see backend/scripts/create_lender.py.
     try {
       const res = await axios.post(`${API}/api/auth/lender/login`, {
         email: email.trim(),
         password,
       });
       localStorage.setItem("lender_session", JSON.stringify({
-        institution: "Live lender account",
+        lender_id: res.data.user_id,
         email: email.trim(),
-        officer: "Credit officer",
-        min_score: 650,
-        min_confidence: 0.6,
         lender_token: res.data.access_token,
-        live: true,
         logged_in_at: new Date().toISOString(),
       }));
       setLoading(false);
       go("lender-dashboard");
-      return;
     } catch (liveErr) {
-      if (liveErr.response?.status && liveErr.response.status !== 401) {
-        // Backend reachable but errored — still allow demo fallback below.
-      }
-    }
-
-    window.setTimeout(() => {
-      const lender = verifyLender(email, password);
       setLoading(false);
-      if (!lender) {
-        setError("Invalid lender credentials. Try a test account below.");
-        return;
-      }
-      localStorage.setItem("lender_session", JSON.stringify({
-        institution: lender.institution,
-        email: lender.email,
-        officer: lender.officer,
-        min_score: lender.min_score,
-        min_confidence: lender.min_confidence,
-        live: false,
-        logged_in_at: new Date().toISOString(),
-      }));
-      go("lender-dashboard");
-    }, 500);
+      setError(
+        liveErr.response?.data?.detail ||
+          "Invalid lender credentials. Contact your administrator for access."
+      );
+    }
   };
 
   return (
@@ -125,18 +102,6 @@ export default function LenderLogin({ go }) {
           >
             {loading ? "Verifying…" : "Sign in to lender portal"}
           </button>
-
-          <div className="mt-5 rounded-xl bg-slate-50 border border-slate-100 p-3.5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
-              Test accounts (any password shown works)
-            </p>
-            <div className="space-y-1.5 text-xs text-slate-600">
-              <p><span className="font-bold">credit@ruhunafinance.demo</span> · Ruhuna Finance · thresholds 620 / 50%</p>
-              <p><span className="font-bold">risk@ceylonsme.demo</span> · Ceylon SME Bank · thresholds 680 / 65%</p>
-              <p><span className="font-bold">underwriting@metroleasing.demo</span> · Metro Leasing · thresholds 700 / 70%</p>
-              <p className="text-slate-400">Password for all: demo1234</p>
-            </div>
-          </div>
         </form>
 
         <button

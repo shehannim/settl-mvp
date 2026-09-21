@@ -85,6 +85,7 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
 
     return {
         "settl_id": settl_id.strip().upper(),
+        "user_id": user_id,
         "applicant_name": user["full_name"],
         "email": user.get("email"),
         "kyc_verified": user.get("kyc_verified", False),
@@ -92,10 +93,31 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
         "band": s["band"],
         "confidence": s["confidence"],
         "meets_threshold": meets_threshold,
+        "top_positive_factors": _safe_parse(s.get("top_positive_factors")),
+        "top_negative_factors": _safe_parse(s.get("top_negative_factors")),
         "model_version": s["model_version"],
         "scored_at": s["computed_at"],
-        # Boundary: score + identity only.
-        # Never include: raw transactions, SHAP internals, NIC, PayPal data, bill contents
+        # Boundary: score + identity + explanations only.
+        # Never include: raw transactions, NIC, PayPal data, bill contents
+    }
+
+
+@router.get("/me")
+async def lender_profile(lender: dict = Depends(get_current_lender)):
+    """Own institution profile: thresholds shown in the portal header."""
+    db = get_supabase_admin()
+    result = db.table("lenders").select(
+        "id, email, institution_name, min_score, min_confidence"
+    ).eq("id", lender["sub"]).execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Lender not found")
+    row = result.data[0]
+    return {
+        "lender_id": row["id"],
+        "email": row.get("email"),
+        "institution_name": row.get("institution_name") or "Lender",
+        "min_score": row.get("min_score") or 650,
+        "min_confidence": row.get("min_confidence") or 0.60,
     }
 
 

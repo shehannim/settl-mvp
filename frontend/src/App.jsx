@@ -24,13 +24,11 @@ import LenderDashboard from "./pages/LenderDashboard.jsx";
 import LinkedInConnect from "./pages/LinkedInConnect.jsx";
 import LinkedInCallback from "./pages/LinkedInCallback.jsx";
 import LinkedInSuccess from "./pages/LinkedInSuccess.jsx";
-import DemoProfiles from "./pages/DemoProfiles.jsx";
 
 const onboardingPages = new Set([
   "auth",
   "lender-login",
   "lender-dashboard",
-  "demo-profiles",
   "email-verify",
   "consent",
   "kyc",
@@ -146,7 +144,6 @@ export default function App() {
     if (page === "auth") return <Auth onAuthenticated={completeAuth} go={go} />;
     if (page === "lender-login") return <LenderLogin go={go} />;
     if (page === "lender-dashboard") return <LenderDashboard go={go} />;
-    if (page === "demo-profiles") return <DemoProfiles go={go} />;
     if (page === "email-verify") return <EmailVerify go={go} onVerified={() => go("consent")} />;
     if (page === "consent") return <Consent go={go} />;
     if (page === "kyc") return <KYC token={token} go={go} />;

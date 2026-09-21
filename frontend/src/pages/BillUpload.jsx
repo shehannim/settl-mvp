@@ -74,51 +74,6 @@ const Icons = {
   ),
 };
 
-const DEFAULT_BILL_RECORDS = [
-  {
-    id: "rec-ceb-01",
-    provider: "CEB Electricity",
-    biller: "Ceylon Electricity Board",
-    accountNumber: "042-8921-992",
-    accountHolder: "Damidu Herath",
-    billingPeriod: "Aug 2026",
-    uploadDate: "2026-08-15",
-    amount: "LKR 7,850.00",
-    status: "verified",
-    paymentSignal: "Paid on time",
-    scoreImpact: "+20 pts",
-    logo: cebLogo,
-  },
-  {
-    id: "rec-slt-02",
-    provider: "SLT Fibre Broadband",
-    biller: "Sri Lanka Telecom",
-    accountNumber: "011-238-4410",
-    accountHolder: "Damidu Herath",
-    billingPeriod: "Jul 2026",
-    uploadDate: "2026-07-28",
-    amount: "LKR 4,200.00",
-    status: "verified",
-    paymentSignal: "Paid on time",
-    scoreImpact: "+15 pts",
-    logo: sltLogo,
-  },
-  {
-    id: "rec-dialog-03",
-    provider: "Dialog Postpaid",
-    biller: "Dialog Axiata",
-    accountNumber: "077-412-8901",
-    accountHolder: "Damidu Herath",
-    billingPeriod: "Aug 2026",
-    uploadDate: "2026-08-20",
-    amount: "LKR 3,150.00",
-    status: "verified",
-    paymentSignal: "Paid on time",
-    scoreImpact: "+12 pts",
-    logo: dialogLogo,
-  },
-];
-
 export default function BillUpload({ token, go }) {
   // File objects + blob URLs live in memory only — they cannot survive
   // JSON serialization, so the queue always starts fresh per session.
@@ -127,9 +82,15 @@ export default function BillUpload({ token, go }) {
 
   const [ocrResults, setOcrResults] = useState([]);
 
+  // The records log starts empty and fills only from real uploads made
+  // in this browser. No sample data — every row below is user-verified.
   const [billRecords, setBillRecords] = useState(() => {
-    const saved = localStorage.getItem("settl_bill_records");
-    return saved ? JSON.parse(saved) : DEFAULT_BILL_RECORDS;
+    try {
+      const saved = localStorage.getItem("settl_bill_records");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
   });
 
   const [uploading, setUploading] = useState(false);

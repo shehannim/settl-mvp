@@ -20,6 +20,10 @@ class GoogleLoginRequest(BaseModel):
     code: str = Field(min_length=4, description="One-time GIS popup auth code")
 
 
+class EmailCodeRequest(BaseModel):
+    otp_code: str = Field(min_length=6, max_length=6)
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -123,6 +127,7 @@ class ScoreResponse(BaseModel):
 # ── LENDER ────────────────────────────────────────────────────────────
 class LenderScoreResponse(BaseModel):
     settl_id: str
+    user_id: str
     applicant_name: str
     score: int
     band: str

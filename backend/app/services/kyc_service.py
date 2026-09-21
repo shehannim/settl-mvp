@@ -37,32 +37,38 @@ def validate_nic(nic: str) -> Tuple[bool, str]:
     return False, "Invalid NIC format. Use 900123456V or 199012345678"
 
 
-def generate_otp(user_id: str, email: str = None) -> str:
+def _otp_key(user_id: str, slot: str = "kyc") -> str:
+    return f"{slot}:{user_id}"
+
+
+def generate_otp(user_id: str, email: str = None, slot: str = "kyc") -> str:
     # secrets = CSPRNG (random.randint is predictable). Never log the OTP value.
+    # slot separates independent flows (kyc vs signup email) sharing one store.
     otp = f"{secrets.randbelow(900000) + 100000:06d}"
-    _otp_store[user_id] = {
+    _otp_store[_otp_key(user_id, slot)] = {
         "otp": otp,
         "created_at": datetime.now(timezone.utc),
         "attempts": 0
     }
     # Email delivery must happen server-side (see routers/kyc.py).
     # Only log that an OTP was issued, never the value.
-    logger.info("OTP issued for user_id=%s", user_id[:8] + "...")
+    logger.info("OTP issued slot=%s user_id=%s", slot, user_id[:8] + "...")
     return otp
 
 
-def verify_otp(user_id: str, code: str) -> Tuple[bool, str]:
+def verify_otp(user_id: str, code: str, slot: str = "kyc") -> Tuple[bool, str]:
     """
     Verifies OTP for a user.
     Returns (is_valid, error_message)
     """
-    record = _otp_store.get(user_id)
+    key = _otp_key(user_id, slot)
+    record = _otp_store.get(key)
 
     if not record:
         return False, "No OTP found. Please request a new code."
 
     if record["attempts"] >= 3:
-        del _otp_store[user_id]
+        del _otp_store[key]
         return False, "Too many attempts. Please request a new code."
 
     created = record["created_at"]
@@ -70,16 +76,16 @@ def verify_otp(user_id: str, code: str) -> Tuple[bool, str]:
         created = created.replace(tzinfo=timezone.utc)
     elapsed = (datetime.now(timezone.utc) - created).total_seconds()
     if elapsed > 600:
-        del _otp_store[user_id]
+        del _otp_store[key]
         return False, "OTP has expired. Please request a new code."
 
-    _otp_store[user_id]["attempts"] += 1
+    _otp_store[key]["attempts"] += 1
 
     if record["otp"] != code:
-        remaining = 3 - _otp_store[user_id]["attempts"]
+        remaining = 3 - _otp_store[key]["attempts"]
         return False, f"Incorrect code. {remaining} attempt{'s' if remaining != 1 else ''} remaining."
 
-    del _otp_store[user_id]
+    del _otp_store[key]
     return True, ""
 
 

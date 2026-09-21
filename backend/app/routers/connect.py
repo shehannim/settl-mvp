@@ -94,51 +94,6 @@ def _callback_result(request: Request, success_path: str):
     return RedirectResponse(f"{base}{success_path}")
 
 
-DEMO_CLIENTS = ["Northstar Studio", "Ceylon Commerce", "Horizon Labs", "Paper & Pixel"]
-
-
-def _demo_paypal_transactions(months: int = 12) -> list:
-    """Representative demo payouts for empty PayPal sandbox accounts.
-
-    Shape matches _normalise_paypal_transactions() so the income engine,
-    scoring and dashboard all treat it like real history. Amounts target
-    ~USD 750/mo (~LKR 230k) with mild variance + gentle upward trend.
-    Only 4 months: a short history keeps the honest initial score in the
-    500s (weak) with low confidence — the demo story is earning the climb
-    to 600+, not starting there.
-    """
-    import random
-    from datetime import date
-    rng = random.Random(42)
-    txs = []
-    today = date.today().replace(day=1)
-    seq = 0
-    for m in range(months - 1, -1, -1):
-        # Shift back m months from current month.
-        y, mo = today.year, today.month - m
-        while mo <= 0:
-            mo += 12
-            y -= 1
-        # Trend: older months slightly lower, recent slightly higher.
-        growth = 1.0 + (months - 1 - m) * 0.012
-        n_payouts = 3
-        for i, day in enumerate((5, 14, 26)):
-            client = DEMO_CLIENTS[(m * 3 + i) % len(DEMO_CLIENTS)]
-            amount = round(rng.uniform(180, 320) * growth, 2)
-            seq += 1
-            txs.append({
-                "transaction_id": f"demo-paypal-{seq:04d}",
-                "date": f"{y:04d}-{mo:02d}-{day:02d}",
-                "amount_usd": amount,
-                "currency": "USD",
-                "type": "PAYMENT",
-                "status": "S",
-                "counterparty": client,
-                "note": "Freelance payout (demo)",
-            })
-    return txs
-
-
 # ✅ STEP 1 — Start OAuth
 @router.get("/paypal")
 async def connect_paypal(user: dict = Depends(get_current_user)):
@@ -184,17 +139,6 @@ async def paypal_callback(request: Request, code: str, state: str):
         except Exception as e:
             logger.warning("PayPal transaction fetch failed: %s", e)
 
-        # 🧪 DEMO: empty sandbox accounts get representative payouts so the
-        # demo shows a rising score + populated income hub. Real history
-        # (>= 6 txns) is never touched. Disable via DEMO_PAYPAL_SEED=false.
-        demo_seeded = False
-        if settings.DEMO_PAYPAL_SEED and len(transactions) < 6:
-            transactions = _demo_paypal_transactions(months=4)
-            demo_seeded = True
-            logger.info("PayPal demo seed: %d demo txns for user %s", len(transactions), user_id)
-            if not profile.get("name"):
-                profile = {**profile, "name": "PayPal Business", "email": "paypal.user@settl"}
-
         # ✅ SAFE processing
         usd_to_lkr = 1.0
         monthly_income = []
@@ -204,8 +148,6 @@ async def paypal_callback(request: Request, code: str, state: str):
             usd_to_lkr = await get_usd_to_lkr_rate()
             monthly_income = build_monthly_income(transactions, usd_to_lkr)
             income_features = compute_income_features(monthly_income)
-            if demo_seeded:
-                income_features = {**income_features, "demo": True}
         except Exception as e:
             logger.warning("Income processing failed: %s", e)
 
@@ -250,59 +192,6 @@ async def paypal_callback(request: Request, code: str, state: str):
             }).eq("id", user_id).execute()
         except Exception as e:
             logger.warning("User stats update failed: %s", e)
-
-        # 🧪 DEMO: seed a clearly-marked demo score so the dashboard and
-        # lender portal show a number immediately after a sandbox connect.
-        # Deliberately modest (548 weak, 0.24 confidence): the demo story is
-        # EARNING the climb via bills + sources, not starting high.
-        # model_version "demo-1.0" flags it; any real /score/compute row is
-        # newer and wins (result is ordered by computed_at desc).
-        if demo_seeded:
-            try:
-                db.table("scores").insert({
-                    "user_id": user_id,
-                    "score": 548,
-                    "band": "weak",
-                    "confidence": 0.17,
-                    "confidence_breakdown": {
-                        "source_breadth": 0.25,
-                        "history_length": 0.30,
-                        "data_completeness": 0.5,
-                        "raw_confidence": 0.33,
-                        "fraud_adjustment": 1.0,
-                        "identity_consistency": 0.5,
-                        "demo": True,
-                    },
-                    "categories": [
-                        {"category": "income", "score": 52.0, "weight": 0.35},
-                        {"category": "payment", "score": 48.0, "weight": 0.30},
-                        {"category": "platform", "score": 50.0, "weight": 0.20},
-                        {"category": "footprint", "score": 45.0, "weight": 0.15},
-                    ],
-                    "top_positive_factors": [
-                        {"feature_name": "income_6m_avg", "display_label": "6-month average income",
-                         "shap_value": 8.0, "direction": "positive",
-                         "reason_code": "Steady demo freelance payouts over 4 months."},
-                        {"feature_name": "income_trend_slope", "display_label": "Income growth trend",
-                         "shap_value": 4.0, "direction": "positive",
-                         "reason_code": "Demo income trends upward."},
-                    ],
-                    "top_negative_factors": [
-                        {"feature_name": "income_source_count", "display_label": "Number of income sources",
-                         "shap_value": -6.5, "direction": "negative",
-                         "reason_code": "Only one income platform connected - add more to improve your score."},
-                    ],
-                    "improvement_tips": [
-                        {"heading": "Connect another income platform",
-                         "body": "Adding Fiverr, Upwork, or Payoneer could increase your score by 20-30 points.",
-                         "estimated_gain": "+20-30 pts", "feature": "income_source_count"},
-                    ],
-                    "feature_vector": [[0.0] * 28],
-                    "model_version": "demo-1.0",
-                    "computed_at": datetime.now(timezone.utc).isoformat(),
-                }).execute()
-            except Exception as e:
-                logger.warning("Demo score insert failed: %s", e)
 
         # ✅ Back to the frontend that started the flow (JSON for SPA fetch)
         return _callback_result(request, "/connect/paypal/success")

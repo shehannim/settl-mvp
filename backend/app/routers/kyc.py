@@ -2,8 +2,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.models.schemas import NICVerifyRequest, OTPVerifyRequest, KYCStatusResponse
 from app.core.security import get_current_user
 from app.core.database import get_supabase_admin
-from app.core.config import get_settings
 from app.services.kyc_service import validate_nic, generate_otp, verify_otp
+from app.services.email_service import send_otp_email, EmailNotConfigured
 from datetime import datetime, timezone
 import logging
 
@@ -32,19 +32,22 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
         "nic_validated_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", user_id).execute()
 
-    # Generate OTP server-side. Delivery must be server-side email/SMS.
-    # Never return the OTP in production — DEMO_RETURN_OTP exists only for local dev.
+    # Generate OTP server-side and deliver by server-side email.
+    # The OTP is NEVER returned in the response.
     otp = generate_otp(user_id, user_email)
-    settings = get_settings()
-    resp: dict = {
+    try:
+        await send_otp_email(user_email, otp, purpose="kyc")
+    except EmailNotConfigured as e:
+        raise HTTPException(status_code=503, detail=str(e))
+    except Exception:
+        logger.exception("KYC OTP email failed")
+        raise HTTPException(status_code=502, detail="Could not send verification code, try again.")
+
+    return {
         "success": True,
         "email": user_email,
         "message": "Verification code sent to your email.",
     }
-    if settings.DEMO_RETURN_OTP:
-        logger.warning("Returning OTP in response (DEMO_RETURN_OTP=True, dev only)")
-        resp["otp"] = otp
-    return resp
 
 
 @router.post("/verify-otp")

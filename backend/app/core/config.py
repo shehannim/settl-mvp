@@ -12,8 +12,10 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""
 
-    # Demo / debug — NEVER enable in production (exposes OTPs).
-    DEMO_RETURN_OTP: bool = False
+    # Email delivery (Resend HTTPS API — Render free blocks SMTP).
+    # Unset = OTP endpoints answer 503 instead of pretending to send mail.
+    RESEND_API_KEY: str = ""
+    RESEND_FROM: str = ""
 
     # OAuth state signing (falls back to SECRET_KEY)
     OAUTH_STATE_SECRET: str = ""
@@ -60,11 +62,6 @@ class Settings(BaseSettings):
     STRIPE_CLIENT_ID: str = ""
     STRIPE_SECRET_KEY: str = ""
     STRIPE_REDIRECT_URI: str = ""
-
-    # Demo seeding — when a PayPal sandbox account returns almost no
-    # transactions, seed representative demo payouts so demos show a
-    # rising score + populated income hub. Disable in production.
-    DEMO_PAYPAL_SEED: bool = True
 
     # Exchange rate
     EXCHANGE_RATE_API_KEY: str = ""

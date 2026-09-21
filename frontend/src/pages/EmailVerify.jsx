@@ -1,44 +1,89 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import axios from "axios";
 import OtpInput from "../components/OtpInput.jsx";
 import logo from "../assets/Settl Logo.png";
 
-const DEMO_MODE = import.meta.env.DEV || import.meta.env.VITE_DEMO_MODE === "true";
-const DEMO_OTP = "000000";
+const API =
+  import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
-export default function EmailVerify({ go, onVerified }) {
+export default function EmailVerify({ go, onVerified, token }) {
   const email = localStorage.getItem("email") || "your registered email";
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [loading, setLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+
+  const authToken = token || localStorage.getItem("token");
+  const headers = { Authorization: `Bearer ${authToken}` };
+
+  const requestCode = async (silent) => {
+    if (!authToken) {
+      if (!silent) setError("Session expired. Please sign in again.");
+      return false;
+    }
+    if (!silent) setSending(true);
+    try {
+      await axios.post(`${API}/api/auth/email/request`, {}, { headers });
+      if (!silent) setNotice(`Verification code sent to ${email}.`);
+      return true;
+    } catch (requestError) {
+      if (!silent) {
+        setError(
+          requestError.response?.data?.detail ||
+            "Could not send a code. Please try again."
+        );
+      }
+      return false;
+    } finally {
+      if (!silent) setSending(false);
+    }
+  };
+
+  // First code goes out automatically on arrival (skip if already verified).
+  useEffect(() => {
+    if (localStorage.getItem("email_verified") === "true") {
+      if (onVerified) onVerified();
+      else go("consent");
+      return;
+    }
+    requestCode(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleVerify = async () => {
     setLoading(true);
     setError("");
+    setNotice("");
 
-    if (DEMO_MODE && otp === DEMO_OTP) {
+    if (otp.length !== 6) {
+      setError("Please enter the 6-digit confirmation code.");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${API}/api/auth/email/verify`,
+        { otp_code: otp },
+        { headers }
+      );
       localStorage.setItem("email_verified", "true");
       setLoading(false);
       if (onVerified) onVerified();
       else go("consent");
-      return;
-    }
-
-    if (otp.length === 6) {
-      localStorage.setItem("email_verified", "true");
+    } catch (requestError) {
+      setError(
+        requestError.response?.data?.detail || "Verification failed. Try again."
+      );
       setLoading(false);
-      if (onVerified) onVerified();
-      else go("consent");
-      return;
     }
-
-    setError("Please enter the 6-digit confirmation code.");
-    setLoading(false);
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     setError("");
-    setNotice(`Verification code re-sent to ${email}.`);
+    setNotice("");
+    await requestCode(false);
   };
 
   return (
@@ -111,21 +156,17 @@ export default function EmailVerify({ go, onVerified }) {
 
             <div className="mt-5 rounded-xl border border-slate-100 bg-slate-50 p-4 text-xs">
               <div className="flex justify-between text-slate-500">
-                <span>
-                  {DEMO_MODE ? "Development verification code" : "Didn't receive the code?"}
-                </span>
+                <span>Didn't receive the code?</span>
                 <button
                   onClick={handleResend}
-                  disabled={loading || DEMO_MODE}
+                  disabled={loading || sending}
                   className="font-bold text-[#004fc5] hover:underline disabled:opacity-50 cursor-pointer"
                 >
-                  {DEMO_MODE ? DEMO_OTP : "Resend code"}
+                  {sending ? "Sending…" : "Resend code"}
                 </button>
               </div>
               <p className="mt-3 text-slate-500">
-                {DEMO_MODE
-                  ? "Enter 000000 to continue through onboarding."
-                  : "Verification is sent to your registered email address."}
+                Verification is sent to your registered email address.
               </p>
             </div>
 
