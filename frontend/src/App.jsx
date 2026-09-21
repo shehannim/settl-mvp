@@ -24,9 +24,16 @@ import LenderDashboard from "./pages/LenderDashboard.jsx";
 import LinkedInConnect from "./pages/LinkedInConnect.jsx";
 import LinkedInCallback from "./pages/LinkedInCallback.jsx";
 import LinkedInSuccess from "./pages/LinkedInSuccess.jsx";
+import DemoLogin from "./pages/DemoLogin.jsx";
+
+function demoKeyFromHash() {
+  const m = (window.location.hash || "").match(/^#demo=([A-Za-z0-9_-]+)/);
+  return m ? m[1].toLowerCase() : "";
+}
 
 const onboardingPages = new Set([
   "auth",
+  "demo-login",
   "lender-login",
   "lender-dashboard",
   "email-verify",
@@ -42,9 +49,10 @@ export default function App() {
   const [userId, setUserId] = useState(
     () => localStorage.getItem("userId") || "",
   );
+  const [demoKey, setDemoKey] = useState(() => demoKeyFromHash());
   const [page, setPage] = useState(() => {
-    // Success pages first — they carry no ?code=, but check them before
-    // the bare-code fallback so a stray query can never misroute them.
+    // Booth QR codes (/#demo=<key>) jump straight to demo auto-login.
+    if (demoKeyFromHash()) return "demo-login";
     // Callback pages are discriminated by path; only a bare ?code= with
     // no provider path belongs to PayPal.
     if (window.location.pathname.includes("/connect/payoneer/success"))
@@ -142,6 +150,9 @@ export default function App() {
 
   if (onboardingPages.has(page)) {
     if (page === "auth") return <Auth onAuthenticated={completeAuth} go={go} />;
+    if (page === "demo-login") {
+      return <DemoLogin go={go} onAuthenticated={completeAuth} demoKey={demoKey || demoKeyFromHash()} />;
+    }
     if (page === "lender-login") return <LenderLogin go={go} />;
     if (page === "lender-dashboard") return <LenderDashboard go={go} />;
     if (page === "email-verify") return <EmailVerify go={go} onVerified={() => go("consent")} />;

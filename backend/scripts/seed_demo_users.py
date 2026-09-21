@@ -253,6 +253,66 @@ def seed_user(client: httpx.Client, db, persona: dict, dry: bool):
     print(f"  score={res['score']} band={res['band']} "
           f"confidence={res['confidence']} (compute: {init.get('score')})")
 
+    backfill_history(db, user_id, persona["key"])
+
+
+def _band_for(score: int) -> str:
+    if score >= 750:
+        return "excellent"
+    if score >= 650:
+        return "good"
+    if score >= 550:
+        return "fair"
+    if score >= 450:
+        return "weak"
+    return "poor"
+
+
+# Rising arcs ending at (or near) the live score, so the Income hub trend
+# chart and history ledger read as a journey, not a single dot.
+HISTORY_ARCS = {
+    "struggling": [(262, 0.14, 75), (281, 0.17, 50), (294, 0.19, 25)],
+    "stable": [(655, 0.48, 75), (688, 0.55, 50), (712, 0.60, 25)],
+    "exceptional": [(748, 0.78, 75), (779, 0.84, 50), (803, 0.88, 25)],
+}
+
+
+def backfill_history(db, user_id: str, key: str) -> None:
+    """Inserts backdated snapshots cloned from the live score row.
+
+    Idempotent: wipes the user's scores first (live row re-inserted newest),
+    so reruns never stack duplicate histories.
+    """
+    from datetime import timedelta
+
+    rows = db.table("scores").select("*").eq("user_id", user_id).order(
+        "computed_at", desc=True).execute().data or []
+    if not rows:
+        return
+    live_row = rows[0]
+    db.table("scores").delete().eq("user_id", user_id).execute()
+
+    now = datetime.now(timezone.utc)
+    for score, conf, days_ago in HISTORY_ARCS.get(key, []):
+        row = {k: v for k, v in live_row.items()
+               if k not in ("id", "score", "band", "confidence", "computed_at")}
+        row.update({
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "score": score,
+            "band": _band_for(score),
+            "confidence": conf,
+            "computed_at": (now - timedelta(days=days_ago)).isoformat(),
+        })
+        db.table("scores").insert(row).execute()
+
+    live_row = dict(live_row)
+    live_row["id"] = str(uuid.uuid4())
+    live_row["user_id"] = user_id
+    live_row["computed_at"] = now.isoformat()
+    db.table("scores").insert(live_row).execute()
+    print(f"  history: {len(HISTORY_ARCS.get(key, []))} backdated snapshots + live")
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed 3 demo users.")
