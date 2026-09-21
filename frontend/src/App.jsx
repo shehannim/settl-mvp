@@ -93,11 +93,13 @@ export default function App() {
     setMobileMenuOpen(false);
   };
 
-  const completeAuth = ({ accessToken, id, email, name, settlId, signupMethod = "email", isRegister = false }) => {
+  const completeAuth = ({ accessToken, id, email, name, picture, settlId, signupMethod = "email", isRegister = false }) => {
     localStorage.setItem("token", accessToken);
     localStorage.setItem("userId", id);
     if (email) localStorage.setItem("email", email);
     if (name) localStorage.setItem("name", name);
+    if (picture) localStorage.setItem("picture", picture);
+    else localStorage.removeItem("picture");
     if (settlId) localStorage.setItem("settl_id", settlId);
     localStorage.setItem("auth_provider", signupMethod);
     setToken(accessToken);
@@ -126,6 +128,7 @@ export default function App() {
       "user_id",
       "email",
       "name",
+      "picture",
       "settl_id",
       "auth_provider",
       "email_verified",
@@ -154,6 +157,7 @@ export default function App() {
   }
 
   const userName = localStorage.getItem("name") || "Your profile";
+  const userPicture = localStorage.getItem("picture") || "";
   const tabs = [
     ["dashboard", "Dashboard"],
     ["paypal-dashboard", "Income"],
@@ -198,6 +202,14 @@ export default function App() {
 
           {/* Desktop Right Actions */}
           <div className="hidden md:flex items-center gap-3">
+            {userPicture ? (
+              <img
+                src={userPicture}
+                alt={userName}
+                referrerPolicy="no-referrer"
+                className="h-9 w-9 rounded-full object-cover border border-slate-200"
+              />
+            ) : null}
             <span className="text-sm font-medium text-slate-500">
               {userName}
             </span>
@@ -268,12 +280,22 @@ export default function App() {
           }`}
         >
           <div className="px-4 pb-5 pt-3">
-            <div className="mb-3 px-3.5 py-2 rounded-xl bg-white border border-slate-100 flex items-center justify-between">
+            <div className="mb-3 px-3.5 py-2 rounded-xl bg-white border border-slate-100 flex items-center justify-between gap-3">
               <span className="text-xs text-slate-500 font-medium">
                 Signed in as
               </span>
-              <span className="text-xs font-bold text-slate-800">
-                {userName}
+              <span className="flex items-center gap-2 min-w-0">
+                {userPicture ? (
+                  <img
+                    src={userPicture}
+                    alt={userName}
+                    referrerPolicy="no-referrer"
+                    className="h-6 w-6 rounded-full object-cover border border-slate-200 shrink-0"
+                  />
+                ) : null}
+                <span className="text-xs font-bold text-slate-800 truncate">
+                  {userName}
+                </span>
               </span>
             </div>
 

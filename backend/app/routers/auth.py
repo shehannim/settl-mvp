@@ -164,14 +164,23 @@ async def google_login(body: GoogleLoginRequest):
 
     email = str(claims.get("email", "")).lower().strip()
     full_name = str(claims.get("name") or "").strip() or email.split("@")[0]
+    picture = str(claims.get("picture") or "")
     if not email:
         raise HTTPException(status_code=401, detail="Google account has no email")
 
     db = get_supabase_admin()
-    existing = db.table("users").select("id, settl_id").eq("email", email).execute()
+    existing = db.table("users").select("id, settl_id, full_name").eq("email", email).execute()
     if existing.data:
         user_id = existing.data[0]["id"]
         settl_id = existing.data[0].get("settl_id")
+        stored_name = (existing.data[0].get("full_name") or "").strip()
+        display_name = stored_name or full_name
+        if not stored_name and full_name:
+            # Adopt the verified Google name only when we have none stored.
+            try:
+                db.table("users").update({"full_name": full_name}).eq("id", user_id).execute()
+            except Exception as e:
+                logger.warning("Google display-name update failed: %s", e)
     else:
         # Unusable password hash: Google users can never password-login.
         # 256-bit random — infeasible to guess, and login still checks it.
@@ -179,9 +188,10 @@ async def google_login(body: GoogleLoginRequest):
             db, email=email, full_name=full_name,
             password_hash=hash_password(secrets.token_hex(32)),
         )
+        display_name = full_name
 
     token = create_access_token({"sub": user_id, "email": email}, role="user")
-    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id, email=email)
+    return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id, email=email, name=display_name, picture=picture or None)
 
 
 @router.post("/lender/login", response_model=TokenResponse)

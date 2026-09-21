@@ -59,7 +59,8 @@ export default function Auth({ onAuthenticated, go }) {
                 accessToken: result.data.access_token,
                 id: result.data.user_id,
                 email: result.data.email || "",
-                name: "",
+                name: result.data.name || "",
+                picture: result.data.picture || "",
                 settlId: result.data.settl_id || "",
                 signupMethod: "google",
               });

@@ -27,6 +27,8 @@ class TokenResponse(BaseModel):
     role: str
     settl_id: Optional[str] = None
     email: Optional[str] = None
+    name: Optional[str] = None
+    picture: Optional[str] = None
 
 
 # ── KYC ──────────────────────────────────────────────────────────────
