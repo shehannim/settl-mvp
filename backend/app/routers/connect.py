@@ -29,7 +29,9 @@ from app.services.normalisation_service import (
     get_usd_to_lkr_rate,
     build_monthly_income,
     build_monthly_income_async,
-    compute_income_features
+    compute_income_features,
+    monthly_history,
+    flat_history,
 )
 from datetime import datetime, timezone
 import hashlib
@@ -148,6 +150,7 @@ async def paypal_callback(request: Request, code: str, state: str):
             usd_to_lkr = await get_usd_to_lkr_rate()
             monthly_income = build_monthly_income(transactions, usd_to_lkr)
             income_features = compute_income_features(monthly_income)
+            income_features["monthly_history"] = monthly_history(monthly_income)
         except Exception as e:
             logger.warning("Income processing failed: %s", e)
 
@@ -251,6 +254,7 @@ async def payoneer_callback(request: Request, code: str, state: str):
             usd_to_lkr = await get_usd_to_lkr_rate()
             monthly_income = await build_monthly_income_async(transactions, usd_to_lkr)
             income_features = compute_income_features(monthly_income)
+            income_features["monthly_history"] = monthly_history(monthly_income)
         except Exception as e:
             logger.warning("Payoneer income processing failed: %s", e)
 
@@ -433,6 +437,69 @@ async def get_connected_sources(user: dict = Depends(get_current_user)):
     }
 
 
+@router.get("/income/overview")
+async def income_overview(user: dict = Depends(get_current_user)):
+    """Income vs expenses for charts — all from stored rows, no recompute.
+
+    income: per-source monthly series [{m: 'YYYY-MM', v: LKR}].
+    expenses: utility-bill amounts aggregated by billing month.
+    """
+    import json as _json
+    import re as _re
+
+    user_id = user["sub"]
+    db = get_supabase_admin()
+
+    income = []
+    result = db.table("connected_sources").select(
+        "source, account_name, income_features"
+    ).eq("user_id", user_id).execute()
+    for s in result.data or []:
+        if s.get("source") == "linkedin":
+            continue
+        feats = s.get("income_features") or {}
+        if isinstance(feats, str):
+            try:
+                feats = _json.loads(feats)
+            except Exception:
+                feats = {}
+        series = feats.get("monthly_history") or []
+        income.append({
+            "source": s.get("source"),
+            "account_name": s.get("account_name"),
+            "estimated": bool(feats.get("manual")),
+            "monthly": [
+                {"m": str(p.get("m", ""))[:7], "v": p.get("v", 0)}
+                for p in series if isinstance(p, dict) and p.get("m")
+            ],
+        })
+
+    monthly_exp: dict = {}
+    bills = db.table("verified_bills").select("fields").eq(
+        "user_id", user_id).execute()
+    for bill in bills.data or []:
+        fields = bill.get("fields") or []
+        if isinstance(fields, dict):
+            fields = [{"field_name": k, "extracted_value": v}
+                      for k, v in fields.items()]
+        by_name = {f.get("field_name"): f.get("extracted_value")
+                   for f in fields if isinstance(f, dict)}
+        try:
+            amount = float(str(by_name.get("amount_due", "")).replace(",", ""))
+        except (TypeError, ValueError):
+            continue
+        period = str(by_name.get("billing_period") or "")
+        m = _re.search(r"(\d{1,2})/(\d{1,2})/(\d{4})", period)
+        if not m:
+            continue
+        key = f"{m.group(3)}-{int(m.group(2)):02d}"
+        monthly_exp[key] = monthly_exp.get(key, 0) + amount
+
+    expenses = [{"m": k, "v": round(v)} for k, v in sorted(monthly_exp.items())]
+
+    return {"income": income, "expenses": expenses}
+
+
 # ==========================================
 # 🆕 NEW ENDPOINTS FOR FRONTEND INCOME HUB
 # ==========================================
@@ -474,6 +541,10 @@ async def connect_manual(body: ManualConnectRequest, user: dict = Depends(get_cu
         "manual": True,
         "profile_url": body.profile_url or "",
         "months_declared": months,
+        # Declared average rendered as a flat estimated series for charts.
+        "monthly_history": [
+            {**pt, "estimated": True} for pt in flat_history(monthly_avg, months)
+        ],
     }
 
     user_id = user["sub"]

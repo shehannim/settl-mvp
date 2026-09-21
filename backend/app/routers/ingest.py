@@ -376,6 +376,8 @@ async def upload_payoneer_statement(
         usd_to_lkr = await get_usd_to_lkr_rate()
         monthly_income = await build_monthly_income_async(transactions, usd_to_lkr)
         income_features = compute_income_features(monthly_income)
+        from app.services.normalisation_service import monthly_history as _mh
+        income_features["monthly_history"] = _mh(monthly_income)
     except Exception as e:
         logger.exception("Payoneer statement income processing failed")
         raise HTTPException(status_code=500, detail="Income processing failed")

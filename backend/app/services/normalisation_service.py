@@ -126,6 +126,37 @@ async def build_monthly_income_async(
     return build_monthly_income(enriched, usd_to_lkr)
 
 
+def monthly_history(monthly: pd.DataFrame, limit: int = 24) -> List[Dict]:
+    """Monthly series for charts: [{m: 'YYYY-MM', v: income_lkr}]."""
+    if monthly is None or monthly.empty:
+        return []
+    rows = monthly.tail(limit)
+    out = []
+    for _, r in rows.iterrows():
+        try:
+            out.append({"m": str(r["year_month"])[:7], "v": round(float(r["income_lkr"]))})
+        except (TypeError, ValueError, KeyError):
+            continue
+    return out
+
+
+def flat_history(avg_lkr: float, months: int, end: Optional[str] = None) -> List[Dict]:
+    """Declared-average series for manual sources (flagged estimated)."""
+    from datetime import date as _date
+    if end:
+        y, m = int(end[:4]), int(end[5:7])
+    else:
+        today = _date.today()
+        y, m = today.year, today.month
+    out = []
+    for _ in range(max(int(months or 0), 0)):
+        out.append({"m": f"{y:04d}-{m:02d}", "v": round(float(avg_lkr or 0))})
+        m -= 1
+        if m == 0:
+            m, y = 12, y - 1
+    return list(reversed(out))
+
+
 def compute_income_features(monthly: pd.DataFrame) -> Dict:
     """
     Computes the 7 income stability features from monthly income data.

@@ -254,6 +254,68 @@ async def google_login(body: GoogleLoginRequest):
     return TokenResponse(access_token=token, user_id=user_id, role="user", settl_id=settl_id, email=email, name=display_name, picture=picture or None)
 
 
+@router.get("/demo/profiles")
+async def demo_profiles():
+    """Public booth listing: dummy @settl-demo.com accounts with live scores.
+
+    Domain-restricted by construction — only addresses under settl-demo.com
+    (synthetic demo data) can ever appear here. No auth needed (booth use).
+    """
+    db = get_supabase_admin()
+    users = db.table("users").select("id, email, full_name").ilike(
+        "email", "%@settl-demo.com").execute().data or []
+    out = []
+    for u in users:
+        local = (u.get("email") or "").split("@")[0]
+        key = local.split(".")[0] if local else ""
+        if not key:
+            continue
+        scores = db.table("scores").select("score, band, confidence").eq(
+            "user_id", u["id"]).order("computed_at", desc=True).limit(1).execute()
+        s = (scores.data or [{}])[0]
+        out.append({
+            "key": key,
+            "name": u.get("full_name") or key.title(),
+            "score": s.get("score"),
+            "band": s.get("band"),
+            "confidence": s.get("confidence"),
+        })
+    return {"profiles": sorted(out, key=lambda p: (p["score"] is None, p["score"] or 0))}
+
+
+@router.post("/demo/enter", response_model=TokenResponse)
+async def demo_enter(body: dict):
+    """Passwordless entry for booth demo accounts ONLY.
+
+    Matches {key}* @settl-demo.com (synthetic data). Real user domains can
+    never match, so this cannot mint sessions for actual borrowers.
+    Short-lived JWT (60 min).
+    """
+    from datetime import timedelta
+
+    key = str((body or {}).get("key") or "").strip().lower()
+    if not key or len(key) > 40:
+        raise HTTPException(status_code=422, detail="Unknown demo profile")
+    db = get_supabase_admin()
+    users = db.table("users").select("id, email, full_name, settl_id").ilike(
+        "email", f"{key}%@settl-demo.com").execute()
+    rows = users.data or []
+    if not rows:
+        raise HTTPException(status_code=404, detail="Unknown demo profile")
+    user = sorted(rows, key=lambda r: r.get("email", ""))[0]
+
+    token = create_access_token(
+        {"sub": user["id"], "email": user["email"]},
+        role="user",
+        expires_delta=timedelta(minutes=60),
+    )
+    return TokenResponse(
+        access_token=token, user_id=user["id"], role="user",
+        settl_id=user.get("settl_id"), email=user.get("email"),
+        name=user.get("full_name"),
+    )
+
+
 @router.post("/lender/login", response_model=TokenResponse)
 async def lender_login(body: LenderLoginRequest):
     """Separate login for lender portal — issues lender-scoped JWT."""
