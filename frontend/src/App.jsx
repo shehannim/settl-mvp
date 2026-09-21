@@ -160,6 +160,7 @@ export default function App() {
 
   const userName = localStorage.getItem("name") || "Your profile";
   const userPicture = localStorage.getItem("picture") || "";
+  const isDemoSession = (localStorage.getItem("email") || "").endsWith("@settl-demo.com");
   const tabs = [
     ["dashboard", "Dashboard"],
     ["paypal-dashboard", "Income"],
@@ -168,6 +169,27 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#f8f9ff] text-slate-900 font-sans">
+      {isDemoSession && (
+        <div className="bg-[#0b132b] text-white px-4 py-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs sticky top-0 z-[60]">
+          <span className="font-bold tracking-wide">
+            DEMO MODE · viewing {userName}
+          </span>
+          <span className="flex items-center gap-2">
+            <button
+              onClick={() => go("demo-gate")}
+              className="rounded-full bg-white/10 hover:bg-white/20 px-3 py-1 font-bold transition"
+            >
+              ⇄ Switch profile
+            </button>
+            <button
+              onClick={logout}
+              className="rounded-full bg-white text-[#0b132b] px-3 py-1 font-bold hover:bg-slate-200 transition"
+            >
+              Exit demo →
+            </button>
+          </span>
+        </div>
+      )}
       <header className="sticky top-0 z-30 bg-[#f8f9ff]/80 backdrop-blur-md [-webkit-backdrop-filter:blur(12px)]">
         <div className="mx-auto flex h-[72px] max-w-[1180px] items-center justify-between px-4 sm:px-6">
           <button
