@@ -24,8 +24,14 @@ export default function EmailVerify({ go, onVerified, token }) {
     }
     if (!silent) setSending(true);
     try {
-      await axios.post(`${API}/api/auth/email/request`, {}, { headers });
-      if (!silent) setNotice(`Verification code sent to ${email}.`);
+      const res = await axios.post(`${API}/api/auth/email/request`, {}, { headers });
+      if (!silent) {
+        setNotice(
+          res.data?.delivery === "server-log"
+            ? "Email delivery isn't configured — find the code in the backend logs."
+            : `Verification code sent to ${email}.`
+        );
+      }
       return true;
     } catch (requestError) {
       if (!silent) {

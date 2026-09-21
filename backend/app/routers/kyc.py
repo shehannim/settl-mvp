@@ -34,11 +34,20 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
 
     # Generate OTP server-side and deliver by server-side email.
     # The OTP is NEVER returned in the response.
+    # TEMPORARY (pre-launch): if Resend isn't configured, the code is logged
+    # server-side and the client is told to read backend logs. Flip to
+    # hard-503 once RESEND_* is set by deleting the fallback below.
     otp = generate_otp(user_id, user_email)
+    delivery = "emailed"
     try:
         await send_otp_email(user_email, otp, purpose="kyc")
-    except EmailNotConfigured as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    except EmailNotConfigured:
+        logger.warning(
+            "TEMPORARY: email unconfigured, KYC OTP for %s: %s "
+            "(remove this fallback when RESEND_* is set)",
+            user_email, otp,
+        )
+        delivery = "server-log"
     except Exception:
         logger.exception("KYC OTP email failed")
         raise HTTPException(status_code=502, detail="Could not send verification code, try again.")
@@ -46,7 +55,12 @@ async def verify_nic(body: NICVerifyRequest, user: dict = Depends(get_current_us
     return {
         "success": True,
         "email": user_email,
-        "message": "Verification code sent to your email.",
+        "delivery": delivery,
+        "message": (
+            "Verification code sent to your email."
+            if delivery == "emailed" else
+            "Email delivery is not configured — find the code in the backend logs."
+        ),
     }
 
 

@@ -6,6 +6,7 @@ from app.models.schemas import (
 from app.core.security import hash_password, verify_password, create_access_token, get_current_user
 from app.core.database import get_supabase_admin
 from app.core.config import get_settings
+from app.services.email_service import send_otp_email, EmailNotConfigured
 import base64
 import httpx
 import json
@@ -13,7 +14,7 @@ import logging
 import secrets
 import time
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -107,14 +108,29 @@ async def request_email_code(user: dict = Depends(get_current_user)):
     email = result.data[0]["email"]
 
     otp = _gen(user_id, email, slot="email")
+    # TEMPORARY (pre-launch): same server-log fallback as KYC. Delete when RESEND_* is set.
+    delivery = "emailed"
     try:
         await send_otp_email(email, otp, purpose="verification")
-    except EmailNotConfigured as e:
-        raise HTTPException(status_code=503, detail=str(e))
+    except EmailNotConfigured:
+        logger.warning(
+            "TEMPORARY: email unconfigured, signup OTP for %s: %s "
+            "(remove this fallback when RESEND_* is set)",
+            email, otp,
+        )
+        delivery = "server-log"
     except Exception:
         logger.exception("Signup OTP email failed")
         raise HTTPException(status_code=502, detail="Could not send verification code, try again.")
-    return {"success": True, "message": "Verification code sent to your email."}
+    return {
+        "success": True,
+        "delivery": delivery,
+        "message": (
+            "Verification code sent to your email."
+            if delivery == "emailed" else
+            "Email delivery is not configured — find the code in the backend logs."
+        ),
+    }
 
 
 @router.post("/email/verify")

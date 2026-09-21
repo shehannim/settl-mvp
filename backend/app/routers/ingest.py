@@ -163,19 +163,16 @@ async def upload_utility_bill(
 
     db = get_supabase_admin()
 
-    # Duplicate detection — same user uploading the same file twice.
-    # file_sha256 is unique per (user_id); re-uploads get 409, not a new row.
+    # Duplicate detection — TEMPORARY (pre-launch): re-uploads are allowed
+    # through and flagged instead of rejected, so testing never blocks.
+    # To enforce, replace the flag with: raise HTTPException(409, ...).
+    duplicate_of = None
     try:
         dup = db.table("pending_bills").select("id").eq(
             "user_id", user_id).eq("file_sha256", file_sha256).execute()
         if dup.data:
-            raise HTTPException(
-                status_code=409,
-                detail="DUPLICATE_BILL: this file was already uploaded "
-                       f"(bill_id={dup.data[0]['id']}).",
-            )
-    except HTTPException:
-        raise
+            duplicate_of = dup.data[0]["id"]
+            logger.info("Re-upload of bill %s by user %s", duplicate_of, user_id[:8])
     except Exception as e:
         logger.warning("Duplicate check skipped: %s", e)
 
@@ -324,6 +321,7 @@ async def upload_utility_bill(
         "payment_on_time": ocr_result.get("payment_on_time"),
         "status": review_status,
         "file_sha256": file_sha256,
+        "duplicate_of": duplicate_of,
         "metadata": metadata,
         "raw_text": raw_text_out,
         "has_raw_text": bool(raw_text),
