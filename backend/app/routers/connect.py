@@ -377,7 +377,8 @@ async def linkedin_callback(request: Request, code: str, state: str):
         raise HTTPException(status_code=500, detail="Callback failed")
 
 
-# ✅ STEP 3 — Get connected sources (USED BY DASHBOARD)@router.get("/sources")
+# ✅ STEP 3 — Get connected sources (USED BY DASHBOARD)
+@router.get("/sources")
 async def get_connected_sources(user: dict = Depends(get_current_user)):
     user_id = user["sub"]
 
