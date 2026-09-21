@@ -96,6 +96,10 @@ export default function Auth({ onAuthenticated, go }) {
       return setError("Password must be at least 8 characters.");
 
     setLoading(true);
+    setSlowServer(false);
+    // Free-tier hosting sleeps when idle: if auth takes >6s the server is
+    // waking up (~1 min first hit), not broken. Say so instead of spinning.
+    const slowTimer = window.setTimeout(() => setSlowServer(true), 6000);
     const fullName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim();
     try {
       const payload = isRegister
@@ -124,7 +128,9 @@ export default function Auth({ onAuthenticated, go }) {
           "We could not reach Settl. Please try again.",
       );
     } finally {
+      window.clearTimeout(slowTimer);
       setLoading(false);
+      setSlowServer(false);
     }
   };
 
@@ -243,6 +249,11 @@ export default function Auth({ onAuthenticated, go }) {
               >
                 {loading ? "Please wait…" : "Continue"}
               </button>
+              {loading && slowServer && (
+                <p className="mt-3 text-center text-xs font-medium text-slate-500">
+                  Still working — the server is waking up. First sign-ins can take about a minute on free hosting.
+                </p>
+              )}
 
               {/* Divider */}
               <div className="relative my-4 flex items-center justify-center">
