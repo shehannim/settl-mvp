@@ -41,14 +41,20 @@ def _otp_key(user_id: str, slot: str = "kyc") -> str:
     return f"{slot}:{user_id}"
 
 
+def _fixed_code() -> str:
+    import os as _os
+    fixed = (_os.getenv("OTP_FIXED_CODE") or "").strip()
+    return fixed if len(fixed) == 6 and fixed.isdigit() else ""
+
+
 def generate_otp(user_id: str, email: str = None, slot: str = "kyc") -> str:
     # secrets = CSPRNG (random.randint is predictable). Never log the OTP value.
     # slot separates independent flows (kyc vs signup email) sharing one store.
     # DEMO SWITCH: OTP_FIXED_CODE forces every code (e.g. "000000" for demo
     # day). Unset it for real randomness. Expiry + attempt limits still apply.
     import os as _os
-    fixed = (_os.getenv("OTP_FIXED_CODE") or "").strip()
-    otp = fixed if len(fixed) == 6 and fixed.isdigit() else f"{secrets.randbelow(900000) + 100000:06d}"
+    fixed = _fixed_code()
+    otp = fixed if fixed else f"{secrets.randbelow(900000) + 100000:06d}"
     _otp_store[_otp_key(user_id, slot)] = {
         "otp": otp,
         "created_at": datetime.now(timezone.utc),
@@ -66,6 +72,13 @@ def verify_otp(user_id: str, code: str, slot: str = "kyc") -> Tuple[bool, str]:
     Returns (is_valid, error_message)
     """
     key = _otp_key(user_id, slot)
+    # Demo-day master code: while OTP_FIXED_CODE is set, it is accepted even
+    # if the request predates the switch or a redeploy wiped the store.
+    # Audited here; unset the var after the demo to restore strict checks.
+    if _fixed_code() and code == _fixed_code():
+        _otp_store.pop(key, None)
+        logger.warning("Fixed-code OTP acceptance used slot=%s", slot)
+        return True, ""
     record = _otp_store.get(key)
 
     if not record:
