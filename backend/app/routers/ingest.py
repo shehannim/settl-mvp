@@ -530,3 +530,46 @@ async def review_ocr_bill(
         "payment_on_time": on_time,
         "status": "verified",
     }
+
+
+def _bill_card(row: dict, state: str) -> dict:
+    """List-view shape for the Bills page — works on any device."""
+    fields = row.get("fields") or []
+    if isinstance(fields, dict):
+        fields = [{"field_name": k, "extracted_value": v} for k, v in fields.items()]
+    by_name = {f.get("field_name"): f.get("extracted_value")
+               for f in fields if isinstance(f, dict)}
+    return {
+        "bill_id": row.get("id"),
+        "biller_detected": row.get("biller_detected") or "Unknown",
+        "account_number": by_name.get("account_number"),
+        "billing_period": by_name.get("billing_period"),
+        "amount_due": by_name.get("amount_due"),
+        "payment_on_time": row.get("payment_on_time"),
+        "overall_confidence": row.get("overall_confidence"),
+        "identity_match_score": row.get("identity_match_score"),
+        "status": row.get("status") or state,
+        "fields": fields if isinstance(fields, list) else [],
+        "metadata": row.get("metadata") or {},
+        "created_at": row.get("created_at") or row.get("confirmed_at"),
+    }
+
+
+@router.get("/bills")
+async def list_bills(user: dict = Depends(get_current_user)):
+    """All bills for the signed-in user — feeds the Bills page on any device
+    (localStorage records only exist in the uploading browser)."""
+    user_id = user["sub"]
+    db = get_supabase_admin()
+    pending = db.table("pending_bills").select(
+        "id, biller_detected, fields, overall_confidence, identity_match_score,"
+        "payment_on_time, status, metadata, created_at"
+    ).eq("user_id", user_id).order("created_at", desc=True).execute()
+    verified = db.table("verified_bills").select(
+        "id, biller_detected, fields, overall_confidence, identity_match_score,"
+        "payment_on_time, metadata, confirmed_at"
+    ).eq("user_id", user_id).order("confirmed_at", desc=True).execute()
+    return {
+        "pending": [_bill_card(r, "pending") for r in (pending.data or [])],
+        "verified": [_bill_card(r, "verified") for r in (verified.data or [])],
+    }

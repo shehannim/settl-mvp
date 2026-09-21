@@ -97,9 +97,32 @@ export default function BillUpload({ token, go }) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [selectedPreview, setSelectedPreview] = useState(0);
+  // Server bills (any device) + inspected selection for the detail pane.
+  const [serverBills, setServerBills] = useState({ pending: [], verified: [] });
+  const [inspected, setInspected] = useState(null);
 
   const authToken = token || localStorage.getItem("token");
   const headers = { Authorization: `Bearer ${authToken}` };
+
+  const loadServerBills = async () => {
+    if (!authToken) return;
+    try {
+      const res = await axios.get(`${API}/api/ingest/bills`, {
+        headers: { Authorization: `Bearer ${authToken}` },
+      });
+      setServerBills({
+        pending: res.data?.pending || [],
+        verified: res.data?.verified || [],
+      });
+    } catch {
+      // Offline/expired session — local queue still works.
+    }
+  };
+
+  useEffect(() => {
+    loadServerBills();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     localStorage.setItem("settl_bill_records", JSON.stringify(billRecords));
@@ -109,6 +132,7 @@ export default function BillUpload({ token, go }) {
     const valid = incoming.filter((f) => f.type === "application/pdf");
 
     if (valid.length > 0) {
+      setInspected(null);
       const mapped = valid.map((file) => ({
         name: file.name,
         type: file.type,
@@ -143,6 +167,13 @@ export default function BillUpload({ token, go }) {
     setSelectedPreview(0);
   };
 
+  const fieldOf = (bill, name) => {
+    const f = (bill?.fields || []).find(
+      (x) => (x.field_name || "").toLowerCase() === name
+    );
+    return f?.extracted_value ?? null;
+  };
+
   const getBillerLogo = (billerName) => {
     const lower = (billerName || "").toLowerCase();
     if (lower.includes("ceb") || lower.includes("electricity")) return cebLogo;
@@ -154,6 +185,7 @@ export default function BillUpload({ token, go }) {
     setUploading(true);
     setError("");
     setSuccess("");
+    setInspected(null);
 
     const results = [...ocrResults];
     const newRecords = [];
@@ -230,6 +262,7 @@ export default function BillUpload({ token, go }) {
 
     setOcrResults(results);
     setUploading(false);
+    loadServerBills();
 
     const finalResult = results[results.length - 1];
 
@@ -270,9 +303,26 @@ export default function BillUpload({ token, go }) {
     return [];
   };
 
-  const selectedData = ocrResults[selectedPreview] || {};
+  const selectedData = inspected || ocrResults[selectedPreview] || {};
   const extractedFields = normalizeOcrFields(selectedData?.fields || []);
   const docMeta = selectedData?.metadata || {};
+
+  const serverRecords = [...(serverBills.verified || []), ...(serverBills.pending || [])].map((b) => ({
+    id: `srv-${b.bill_id}`,
+    provider: b.biller_detected || "Utility Statement",
+    biller: b.biller_detected || "Utility Statement",
+    accountNumber: fieldOf(b, "account_number") || "—",
+    accountHolder: "On file",
+    billingPeriod: fieldOf(b, "billing_period") || (b.created_at || "").slice(0, 10),
+    uploadDate: (b.created_at || "").slice(0, 10),
+    amount: fieldOf(b, "amount_due") ? `LKR ${fieldOf(b, "amount_due")}` : "—",
+    status: b.status === "verified" ? "verified" : "needs_staff_review",
+    paymentSignal: b.payment_on_time === true ? "Paid on time" : b.payment_on_time === false ? "Paid late" : "Unverified",
+    scoreImpact: "—",
+    logo: getBillerLogo(b.biller_detected),
+    _serverBill: b,
+  }));
+  const allRecords = [...serverRecords, ...billRecords];
 
   const reviewStatus = selectedData?.status;
   const matchScore = selectedData?.identity_match_score;
@@ -444,7 +494,7 @@ export default function BillUpload({ token, go }) {
 
           {/* Statement Inspection / OCR View (Right Column) */}
           <div className="lg:col-span-7 rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)] flex flex-col">
-            {files.length === 0 ? (
+            {!inspected && files.length === 0 ? (
               <div className="flex flex-col items-center justify-center min-h-[400px] text-center flex-1 p-6">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-slate-100 bg-slate-50 text-slate-400 mb-4">
                   <Icons.Document />
@@ -461,9 +511,18 @@ export default function BillUpload({ token, go }) {
                 <div>
                   <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
                     <h2 className="text-base font-bold text-slate-900">Statement Preview & OCR Calibration</h2>
-                    <span className="font-mono text-xs text-slate-500">
-                      File {selectedPreview + 1} of {files.length}
-                    </span>
+                    {files.length > 0 ? (
+                      <span className="font-mono text-xs text-slate-500">
+                        File {selectedPreview + 1} of {files.length}
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setInspected(null)}
+                        className="text-xs font-bold text-slate-400 hover:text-[#004fc5] hover:underline"
+                      >
+                        ✕ Clear inspection
+                      </button>
+                    )}
                   </div>
 
                   {/* Document iframe frame */}
@@ -617,7 +676,7 @@ export default function BillUpload({ token, go }) {
               </p>
             </div>
             <span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-[#004fc5]">
-              {billRecords.length} statements logged
+              {allRecords.length} statements logged
             </span>
           </div>
 
@@ -634,8 +693,19 @@ export default function BillUpload({ token, go }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-xs">
-                {billRecords.map((record) => (
-                  <tr key={record.id} className="hover:bg-slate-50/70 transition-colors">
+                {allRecords.map((record) => (
+                  <tr
+                    key={record.id}
+                    onClick={() => record._serverBill && setInspected({
+                      fields: record._serverBill.fields,
+                      status: record._serverBill.status,
+                      metadata: record._serverBill.metadata,
+                      identity_match_score: record._serverBill.identity_match_score,
+                      overall_confidence: record._serverBill.overall_confidence,
+                    })}
+                    className={`transition-colors ${record._serverBill ? "hover:bg-slate-50/70 cursor-pointer" : "hover:bg-slate-50/70"}`}
+                    title={record._serverBill ? "Click to inspect extracted fields" : undefined}
+                  >
                     <td className="py-3.5 pl-2">
                       <div className="flex items-center gap-3">
                         <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-100 bg-white p-1">
