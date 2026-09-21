@@ -44,7 +44,11 @@ def _otp_key(user_id: str, slot: str = "kyc") -> str:
 def generate_otp(user_id: str, email: str = None, slot: str = "kyc") -> str:
     # secrets = CSPRNG (random.randint is predictable). Never log the OTP value.
     # slot separates independent flows (kyc vs signup email) sharing one store.
-    otp = f"{secrets.randbelow(900000) + 100000:06d}"
+    # DEMO SWITCH: OTP_FIXED_CODE forces every code (e.g. "000000" for demo
+    # day). Unset it for real randomness. Expiry + attempt limits still apply.
+    import os as _os
+    fixed = (_os.getenv("OTP_FIXED_CODE") or "").strip()
+    otp = fixed if len(fixed) == 6 and fixed.isdigit() else f"{secrets.randbelow(900000) + 100000:06d}"
     _otp_store[_otp_key(user_id, slot)] = {
         "otp": otp,
         "created_at": datetime.now(timezone.utc),
