@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import paypalLogo from "../assets/paypal.png";
+import payoneerLogo from "../assets/brand-payoneer.svg";
+import upworkLogo from "../assets/brand-upwork.svg";
+import fiverrLogo from "../assets/brand-fiverr.svg";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -11,34 +14,27 @@ const formatCompact = (value) => `${Math.round(value / 1000)}k`;
 
 
 const SOURCE_META = {
-  paypal: { name: "PayPal Business", brand: "paypal", bg: "#003087", letter: "P" },
-  payoneer: { name: "Payoneer Payouts", brand: "payoneer", bg: "#ff4800", letter: "Py" },
-  upwork: { name: "Upwork Contracts", brand: "upwork", bg: "#14a800", letter: "Up" },
-  fiverr: { name: "Fiverr Revenue", brand: "fiverr", bg: "#00b22d", letter: "Fi" },
-  linkedin: { name: "LinkedIn Verified", brand: "linkedin", bg: "#0a66c2", letter: "in" },
+  paypal: { name: "PayPal Business", tile: "#ffffff", img: paypalLogo, pad: true },
+  payoneer: { name: "Payoneer Payouts", tile: "#ff4800", img: payoneerLogo },
+  upwork: { name: "Upwork Contracts", tile: "#14a800", img: upworkLogo },
+  fiverr: { name: "Fiverr Revenue", tile: "#00b22d", img: fiverrLogo },
+  linkedin: { name: "LinkedIn Verified", tile: "#0a66c2", letter: "in" },
 };
 
 function SourceIcon({ type }) {
-  const [failed, setFailed] = useState(false);
-  const meta = SOURCE_META[type] || { bg: "#475569", letter: type.slice(0, 2) };
-  if (type === "paypal" || failed) {
-    if (type === "paypal" && !failed) {
-      return <img src={paypalLogo} alt="PayPal" className="h-full w-full object-contain p-1.5" />;
-    }
+  // Bundled brand marks (no runtime hotlinking) with a letter fallback.
+  const meta = SOURCE_META[type] || { tile: "#475569", letter: String(type || "?").slice(0, 2) };
+  if (!meta.img) {
     return (
-      <span className="flex h-full w-full items-center justify-center text-base font-extrabold text-white" style={{ background: meta.bg }}>
+      <span className="flex h-full w-full items-center justify-center text-base font-extrabold text-white" style={{ background: meta.tile }}>
         {meta.letter}
       </span>
     );
   }
   return (
-    <img
-      src={`https://cdn.simpleicons.org/${meta.brand}/white`}
-      alt={meta.name}
-      className="h-full w-full object-contain p-2"
-      style={{ background: meta.bg }}
-      onError={() => setFailed(true)}
-    />
+    <span className="flex h-full w-full items-center justify-center" style={{ background: meta.tile }}>
+      <img src={meta.img} alt={meta.name} className={meta.pad ? "h-full w-full object-contain p-1.5" : "h-3/5 w-3/5 object-contain"} />
+    </span>
   );
 }
 
@@ -133,25 +129,34 @@ export default function PayPalDashboard({ go }) {
     const n = flow.length;
     const xOf = (i) => padL + (n === 1 ? (W - padL - padR) / 2 : (i * (W - padL - padR)) / (n - 1));
     const yOf = (v) => padT + (1 - (v - lo) / span) * (H - padT - padB);
-    const line = (get) => flow.map((p, i) => {
-      const x = xOf(i).toFixed(1);
-      const y = yOf(get(p)).toFixed(1);
-      if (i === 0) return `M ${x},${y}`;
-      const q0 = flow[Math.max(0, i - 1)];
-      const q1 = p;
-      const q2 = flow[Math.min(n - 1, i + 1)];
-      const c1x = (xOf(i) + (xOf(Math.min(n - 1, i + 1)) - xOf(Math.max(0, i - 1))) / 6).toFixed(1);
-      const c1y = (yOf(get(q1)) + (yOf(get(q2)) - yOf(get(q0))) / 6).toFixed(1);
-      return `C ${c1x},${c1y} ${c1x},${c1y} ${x},${y}`;
-    }).join(" ");
+    // Proper Catmull-Rom → cubic Bézier: distinct control points per side,
+    // so curves pass through every month without kinks or overshoot loops.
+    const smooth = (vals) => {
+      const P = vals.map((v, i) => ({ x: xOf(i), y: yOf(v) }));
+      let d = `M ${P[0].x.toFixed(1)},${P[0].y.toFixed(1)}`;
+      for (let i = 0; i < P.length - 1; i++) {
+        const p0 = P[Math.max(0, i - 1)];
+        const p1 = P[i];
+        const p2 = P[i + 1];
+        const p3 = P[Math.min(P.length - 1, i + 2)];
+        const c1x = (p1.x + (p2.x - p0.x) / 6).toFixed(1);
+        const c1y = (p1.y + (p2.y - p0.y) / 6).toFixed(1);
+        const c2x = (p2.x - (p3.x - p1.x) / 6).toFixed(1);
+        const c2y = (p2.y - (p3.y - p1.y) / 6).toFixed(1);
+        d += ` C ${c1x},${c1y} ${c2x},${c2y} ${p2.x.toFixed(1)},${p2.y.toFixed(1)}`;
+      }
+      return d;
+    };
+    const incomePath = smooth(flow.map((p) => p.income));
+    const expensePath = smooth(flow.map((p) => p.expenses));
     const ticks = [];
     for (let v = lo; v <= hi + step / 2; v += step) {
       ticks.push({ value: v, y: yOf(v) });
     }
     return {
       width: W, height: H, padL, padB, ticks,
-      incomePath: line((p) => p.income),
-      expensePath: line((p) => p.expenses),
+      incomePath,
+      expensePath,
       pts: flow.map((p, i) => ({ x: xOf(i), yInc: yOf(p.income), yExp: yOf(p.expenses), p })),
     };
   }, [flow]);

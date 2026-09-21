@@ -48,6 +48,17 @@ export default function DemoGate({ go, onAuthenticated }) {
     }
   };
 
+  const exitDemo = () => {
+    [
+      "token", "userId", "user_id", "email", "name", "picture",
+      "settl_id", "auth_provider", "email_verified", "pdpa_consent_granted",
+      "kyc_verified", "kyc_status", "current_page",
+    ].forEach((key) => {
+      try { localStorage.removeItem(key); } catch { /* ignore */ }
+    });
+    go("auth");
+  };
+
   return (
     <div className="min-h-screen bg-[#f8f9ff] px-4 py-10 font-sans text-slate-900 sm:px-6 flex items-start justify-center">
       <main className="w-full max-w-[880px]">
@@ -111,6 +122,18 @@ export default function DemoGate({ go, onAuthenticated }) {
             No demo profiles are live right now — ask the booth crew.
           </p>
         )}
+
+        <div className="mt-10 text-center">
+          <button
+            onClick={exitDemo}
+            className="rounded-full border border-slate-200 bg-white px-6 py-2.5 text-xs font-bold text-slate-600 hover:border-[#004fc5] hover:text-[#004fc5] transition"
+          >
+            Exit demo → Real Settl product
+          </button>
+          <p className="mt-2 text-[11px] text-slate-400">
+            Signs out the demo account and opens the live sign-in.
+          </p>
+        </div>
       </main>
     </div>
   );
