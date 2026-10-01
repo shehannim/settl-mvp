@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { DEMO_CUSTOMERS, searchDemoCustomers } from "../data/demoCustomers.js";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -30,6 +31,9 @@ export default function LenderDashboard({ go }) {
   const [decisionMsg, setDecisionMsg] = useState("");
   // Session-scoped log only — the authoritative trail is the server audit_log.
   const [sessionLog, setSessionLog] = useState([]);
+  // Demo customer directory (offline walkthrough data, clearly labelled).
+  const [directoryQuery, setDirectoryQuery] = useState("");
+  const [selectedDemoId, setSelectedDemoId] = useState(null);
 
   const lenderToken = lender?.lender_token || "";
   const headers = { Authorization: `Bearer ${lenderToken}` };
@@ -130,6 +134,15 @@ export default function LenderDashboard({ go }) {
       </span>
     );
   }, []);
+
+  const demoMatches = useMemo(
+    () => searchDemoCustomers(directoryQuery),
+    [directoryQuery],
+  );
+  const selectedDemoCustomer = useMemo(
+    () => DEMO_CUSTOMERS.find((c) => c.settl_id === selectedDemoId) || null,
+    [selectedDemoId],
+  );
 
   if (!lender) {
     return (
@@ -259,6 +272,90 @@ export default function LenderDashboard({ go }) {
               </div>
               {decisionMsg && (
                 <p className="mt-3 text-xs font-semibold text-slate-600">{decisionMsg}</p>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-[0_2px_12px_-2px_rgba(15,23,42,0.04)]">
+          <h2 className="text-base font-bold">Demo customer directory</h2>
+          <p className="mt-0.5 text-xs text-slate-500">
+            Offline walkthrough data — search by Settl ID or name, then click a row to inspect score and confidence.
+          </p>
+          <input
+            value={directoryQuery}
+            onChange={(e) => setDirectoryQuery(e.target.value)}
+            placeholder="Search demo customers by Settl ID or name…"
+            className="mt-4 w-full rounded-xl border border-slate-200 px-4 py-3 font-mono text-sm font-semibold outline-none focus:border-[#004fc5] focus:ring-4 focus:ring-blue-100"
+          />
+          <div className="mt-3 overflow-hidden rounded-2xl border border-slate-100">
+            <div className="divide-y divide-slate-100">
+              {demoMatches.map((c) => (
+                <button
+                  key={c.settl_id}
+                  onClick={() => setSelectedDemoId(c.settl_id)}
+                  className={`flex w-full flex-wrap items-center justify-between gap-3 px-4 py-3 text-left text-xs transition ${selectedDemoId === c.settl_id ? "bg-blue-50" : "bg-white hover:bg-slate-50"}`}
+                >
+                  <span>
+                    <span className="block font-bold">{c.applicant_name}</span>
+                    <span className="block font-mono text-slate-500">{c.settl_id}</span>
+                  </span>
+                  <span className="flex items-center gap-2">
+                    <span className="rounded-full bg-slate-50 border border-slate-100 px-2.5 py-1 font-mono font-bold">score {c.score}</span>
+                    <span className="rounded-full bg-slate-50 border border-slate-100 px-2.5 py-1 font-mono font-bold">{Math.round(c.confidence * 100)}%</span>
+                  </span>
+                </button>
+              ))}
+              {demoMatches.length === 0 && (
+                <p className="px-4 py-6 text-center text-xs text-slate-400 font-semibold uppercase tracking-widest">No demo customers match</p>
+              )}
+            </div>
+          </div>
+          {selectedDemoCustomer && (
+            <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                  <p className="text-lg font-extrabold">{selectedDemoCustomer.applicant_name}</p>
+                  <p className="font-mono text-xs text-slate-500">
+                    {selectedDemoCustomer.settl_id} · {selectedDemoCustomer.email} · {selectedDemoCustomer.kyc_verified ? "KYC verified" : "KYC pending"}
+                  </p>
+                </div>
+                <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${BAND_STYLES[selectedDemoCustomer.band] || BAND_STYLES.fair}`}>
+                  {selectedDemoCustomer.band}
+                </span>
+              </div>
+              <div className="mt-4 flex items-center gap-4">
+                <span className="font-mono text-5xl font-extrabold tracking-tight">{selectedDemoCustomer.score}</span>
+                <span className="text-sm font-bold text-slate-700">Confidence {Math.round(selectedDemoCustomer.confidence * 100)}%</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
+                <div className="h-full rounded-full bg-[#004fc5]" style={{ width: `${Math.round(selectedDemoCustomer.confidence * 100)}%` }} />
+              </div>
+              {(selectedDemoCustomer.top_positive_factors?.length > 0 || selectedDemoCustomer.top_negative_factors?.length > 0) && (
+                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Supporting factors</p>
+                    <div className="space-y-2">
+                      {(selectedDemoCustomer.top_positive_factors || []).map((f, i) => (
+                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
+                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-emerald-600">+{f.shap_value}</span></p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Risk factors</p>
+                    <div className="space-y-2">
+                      {(selectedDemoCustomer.top_negative_factors || []).map((f, i) => (
+                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
+                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-red-600">{f.shap_value}</span></p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               )}
             </div>
           )}
