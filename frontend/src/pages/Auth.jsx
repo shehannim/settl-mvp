@@ -29,6 +29,7 @@ export default function Auth({ onAuthenticated, go }) {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [slowServer, setSlowServer] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const codeClientRef = useRef(null);
   const isRegister = mode === "register";
