@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
+import { DEMO_FLOW } from "../data/demoFlow.js";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -43,7 +44,8 @@ export default function IncomeVsExpensesCard() {
       byMonth[m] = byMonth[m] || { m, income: 0, expenses: 0, estimated: false };
       byMonth[m].expenses += Number(p.v) || 0;
     });
-    return Object.values(byMonth).sort((a, b) => (a.m < b.m ? -1 : 1)).slice(-12);
+    const liveFlow = Object.values(byMonth).sort((a, b) => (a.m < b.m ? -1 : 1)).slice(-12);
+    return liveFlow.length > 0 ? liveFlow : DEMO_FLOW;
   }, [overview]);
 
   const flowChart = useMemo(() => {
@@ -100,7 +102,7 @@ export default function IncomeVsExpensesCard() {
       <div className="flex items-start justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
           <h2 className="text-base font-bold">Income vs expenses</h2>
-          <p className="mt-1 text-xs text-slate-500">Monthly payouts across sources against utility-bill spend.</p>
+          <p className="mt-1 text-xs text-slate-500">Monthly income against utility bills and source fees.</p>
         </div>
         <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-[#004fc5]">
           {latestMonth ? `${monthLabel(latestMonth.m)} · net ${monthlyNet != null ? formatLkr(Math.round(monthlyNet)) : "—"}` : "No cashflow"}
@@ -112,7 +114,7 @@ export default function IncomeVsExpensesCard() {
         </div>
       ) : (
         <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-4">
-          <svg viewBox={`0 0 ${flowChart.width} ${flowChart.height}`} className="w-full" role="img" aria-label="Monthly income versus bill expenses chart">
+          <svg viewBox={`0 0 ${flowChart.width} ${flowChart.height}`} className="w-full" role="img" aria-label="Monthly income versus expenses chart">
             <defs>
               <linearGradient id="incomeAreaDash" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor="#004fc5" stopOpacity="0.22" />
@@ -142,8 +144,18 @@ export default function IncomeVsExpensesCard() {
           </svg>
           <div className="mt-2 flex items-center justify-between text-[10px] font-semibold uppercase tracking-wider text-slate-400">
             <span>Values in LKR thousands</span>
-            <span>Blue income · amber bills</span>
+            <span>Blue income · amber expenses</span>
           </div>
+          {latestMonth?.expense_items?.length > 0 && (
+            <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {latestMonth.expense_items.map((item) => (
+                <div key={item.label} className="flex items-center justify-between rounded-xl border border-slate-100 bg-white px-3 py-2 text-xs">
+                  <span className="text-slate-500">{item.label}</span>
+                  <span className="font-mono font-bold text-slate-800">{formatLkr(item.v)}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

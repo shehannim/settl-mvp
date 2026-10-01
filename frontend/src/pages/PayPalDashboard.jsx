@@ -4,6 +4,7 @@ import paypalLogo from "../assets/paypal.png";
 import payoneerLogo from "../assets/brand-payoneer.svg";
 import upworkLogo from "../assets/brand-upwork.svg";
 import fiverrLogo from "../assets/brand-fiverr.svg";
+import { DEMO_FLOW } from "../data/demoFlow.js";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
@@ -11,6 +12,7 @@ const formatLkr = (amount) =>
   `LKR ${new Intl.NumberFormat("en-LK").format(amount)}`;
 
 const formatCompact = (value) => `${Math.round(value / 1000)}k`;
+
 
 
 const SOURCE_META = {
@@ -107,7 +109,9 @@ export default function PayPalDashboard({ go }) {
       byMonth[m] = byMonth[m] || { m, income: 0, expenses: 0, estimated: false };
       byMonth[m].expenses += Number(p.v) || 0;
     });
-    return Object.values(byMonth).sort((a, b) => (a.m < b.m ? -1 : 1)).slice(-12);
+    const liveFlow = Object.values(byMonth).sort((a, b) => (a.m < b.m ? -1 : 1)).slice(-12);
+    // Demo video fallback: always show a rich graph when live month data is thin.
+    return liveFlow.length > 0 ? liveFlow : DEMO_FLOW;
   }, [overview]);
 
   // Dual-series chart on one shared stepped scale (income blue, expenses amber).
@@ -325,7 +329,7 @@ export default function PayPalDashboard({ go }) {
               <div>
                 <h2 className="text-base font-bold">Income vs expenses</h2>
                 <p className="mt-1 text-xs text-slate-500">
-                  Monthly payouts across sources against utility-bill spend.
+                  Monthly payouts across sources against utility bills and source fees.
                 </p>
               </div>
               <div className="flex items-center gap-3 text-[10px] font-bold uppercase tracking-widest">
@@ -333,7 +337,7 @@ export default function PayPalDashboard({ go }) {
                   <span className="inline-block h-2 w-2 rounded-full bg-[#004fc5]" /> Income
                 </span>
                 <span className="flex items-center gap-1.5 text-amber-600">
-                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" /> Bills
+                  <span className="inline-block h-2 w-2 rounded-full bg-amber-500" /> Expenses
                 </span>
               </div>
             </div>
@@ -352,7 +356,7 @@ export default function PayPalDashboard({ go }) {
                   viewBox={`0 0 ${flowChart.width} ${flowChart.height}`}
                   className="w-full"
                   role="img"
-                  aria-label="Monthly income versus bill expenses chart"
+                  aria-label="Monthly income versus expenses chart"
                 >
                   <defs>
                     <linearGradient id="incomeArea" x1="0" y1="0" x2="0" y2="1">
@@ -472,9 +476,14 @@ export default function PayPalDashboard({ go }) {
                       <span className="font-mono font-bold text-[#004fc5]">+{formatLkr(Math.round(row.income))}</span>
                     </p>
                     <p className="mt-0.5 text-xs text-slate-500">
-                      Bills {formatLkr(Math.round(row.expenses))}
+                      Expenses {formatLkr(Math.round(row.expenses))}
                       {row.estimated ? " · includes declared estimates" : ""}
                     </p>
+                    {row.expense_items?.length > 0 && (
+                      <p className="mt-1 text-[11px] text-slate-400">
+                        {row.expense_items.map((item) => `${item.label} ${formatLkr(item.v)}`).join(" · ")}
+                      </p>
+                    )}
                   </div>
                   <p className={`font-mono text-xs font-bold ${row.income - row.expenses >= 0 ? "text-emerald-600" : "text-red-600"}`}>
                     net {formatLkr(Math.round(row.income - row.expenses))}
