@@ -10,6 +10,19 @@ export default function LenderLogin({ go }) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const enterDemo = () => {
+    localStorage.setItem("lender_session", JSON.stringify({
+      lender_id: "demo-lender",
+      email: "credit@ruhunafinance.demo",
+      institution_name: "Ruhuna Finance PLC",
+      min_score: 620,
+      min_confidence: 0.5,
+      demo: true,
+      logged_in_at: new Date().toISOString(),
+    }));
+    go("lender-dashboard");
+  };
+
   const submit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -101,6 +114,14 @@ export default function LenderLogin({ go }) {
             className="mt-6 w-full rounded-xl bg-[#004fc5] py-3.5 text-sm font-bold text-white shadow-sm transition hover:bg-[#003a94] disabled:opacity-60"
           >
             {loading ? "Verifying…" : "Sign in to lender portal"}
+          </button>
+
+          <button
+            type="button"
+            onClick={enterDemo}
+            className="mt-3 w-full rounded-xl border border-slate-200 bg-white py-3 text-sm font-bold text-[#004fc5] shadow-sm transition hover:bg-slate-50"
+          >
+            Enter demo mode — searchable demo accounts
           </button>
         </form>
 

@@ -37,6 +37,8 @@ export default function LenderDashboard({ go }) {
 
   const lenderToken = lender?.lender_token || "";
   const headers = { Authorization: `Bearer ${lenderToken}` };
+  const thresholdScore = profile?.min_score ?? lender?.min_score ?? 650;
+  const thresholdConf = profile?.min_confidence ?? lender?.min_confidence ?? 0.6;
 
   useEffect(() => {
     if (!lenderToken) return;
@@ -62,6 +64,30 @@ export default function LenderDashboard({ go }) {
     const raw = query.trim();
     if (!raw) return;
     setSearching(true);
+    const demoHit = DEMO_CUSTOMERS.find(
+      (c) => c.settl_id.toUpperCase() === raw.toUpperCase(),
+    );
+    // Demo sessions search the seeded directory directly; live sessions still
+    // try the backend first, then fall back to the searchable demo records.
+    if (!lenderToken || lender?.demo) {
+      setSearching(false);
+      if (demoHit) {
+        const verdict = demoHit.score >= thresholdScore && demoHit.confidence >= thresholdConf
+          ? "MEETS THRESHOLD"
+          : "BELOW THRESHOLD";
+        setResult({ ...demoHit, user_id: `demo-${demoHit.settl_id}`, meets_threshold: demoHit.score >= thresholdScore && demoHit.confidence >= thresholdConf });
+        logSession({
+          at: new Date().toLocaleString(),
+          settl_id: demoHit.settl_id,
+          score: demoHit.score,
+          verdict,
+        });
+        setQueryError("Showing demo customer record — live lookup is disabled in demo mode.");
+      } else {
+        setQueryError(`No demo account found for “${raw}”. Search demo customer IDs below or enter a live lender account.`);
+      }
+      return;
+    }
     try {
       const res = await axios.get(
         `${API}/api/lender/query/${encodeURIComponent(raw.toUpperCase())}`,
@@ -78,6 +104,17 @@ export default function LenderDashboard({ go }) {
     } catch (liveErr) {
       const status = liveErr.response?.status;
       if (status === 404) {
+        if (demoHit) {
+          setResult({ ...demoHit, user_id: `demo-${demoHit.settl_id}`, meets_threshold: demoHit.score >= thresholdScore && demoHit.confidence >= thresholdConf });
+          logSession({
+            at: new Date().toLocaleString(),
+            settl_id: demoHit.settl_id,
+            score: demoHit.score,
+            verdict: demoHit.score >= thresholdScore && demoHit.confidence >= thresholdConf ? "MEETS THRESHOLD" : "BELOW THRESHOLD",
+          });
+          setQueryError("Live account not found — showing matching demo customer record.");
+          return;
+        }
         setQueryError(`No applicant found for “${raw}”. Check the Settl ID — the borrower must exist, be KYC-verified, and have a computed score.`);
       } else if (status === 403) {
         setQueryError("Applicant identity not verified yet — no score available for this Settl ID.");
@@ -95,6 +132,11 @@ export default function LenderDashboard({ go }) {
     if (!result) return;
     setDeciding(decision);
     setDecisionMsg("");
+    if (!lenderToken || lender?.demo) {
+      setDeciding(null);
+      setDecisionMsg("Demo mode is read-only — sign in with a live lender account to record outcomes.");
+      return;
+    }
     try {
       const res = await axios.post(
         `${API}/api/lender/outcome`,
