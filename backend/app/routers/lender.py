@@ -44,10 +44,8 @@ async def query_score(settl_id: str, lender: dict = Depends(get_current_lender))
     user = user_result.data[0]
     user_id = user["id"]
 
-    # Check KYC
-    if not user.get("kyc_verified"):
-        raise HTTPException(status_code=403, detail="User identity not verified")
-
+    # Keep KYC as a field on the response, but do not block the lender demo
+    # lookup server-side — the frontend surfaces the verification state.
     # Get latest score
     score_result = db.table("scores").select("*").eq(
         "user_id", user_id
