@@ -4,14 +4,6 @@ import { DEMO_CUSTOMERS, searchDemoCustomers } from "../data/demoCustomers.js";
 
 const API = import.meta.env.VITE_API_URL || "https://settl-backend-s3rc.onrender.com";
 
-const BAND_STYLES = {
-  excellent: "bg-emerald-50 text-emerald-700 border-emerald-200",
-  good: "bg-blue-50 text-[#004fc5] border-blue-200",
-  fair: "bg-amber-50 text-amber-700 border-amber-200",
-  weak: "bg-orange-50 text-orange-700 border-orange-200",
-  poor: "bg-red-50 text-red-700 border-red-200",
-};
-
 function loadSession() {
   try {
     return JSON.parse(localStorage.getItem("lender_session") || "null");
@@ -256,54 +248,17 @@ export default function LenderDashboard({ go }) {
 
           {result && (
             <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-lg font-extrabold">{result.applicant_name}</p>
-                  <p className="font-mono text-xs text-slate-500">
-                    {result.settl_id}
-                    {result.email ? ` · ${result.email}` : ""}
-                    {` · ${result.kyc_verified ? "KYC verified" : "KYC pending"}`}
-                    {` · ${result.model_version} · scored ${result.scored_at}`}
-                  </p>
-                </div>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <span className="font-mono text-xs font-bold text-slate-500">{result.settl_id}</span>
                 {verdictBadge(result.meets_threshold ? "MEETS THRESHOLD" : "BELOW THRESHOLD")}
               </div>
-              <div className="mt-4 flex flex-wrap items-center gap-4">
+              <div className="mt-4 flex items-center gap-4">
                 <span className="font-mono text-5xl font-extrabold tracking-tight">{result.score}</span>
-                <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${BAND_STYLES[result.band] || BAND_STYLES.fair}`}>
-                  {result.band}
-                </span>
                 <span className="text-sm font-bold text-slate-700">Confidence {Math.round(result.confidence * 100)}%</span>
               </div>
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-[#004fc5]" style={{ width: `${Math.round(result.confidence * 100)}%` }} />
               </div>
-              {(result.top_positive_factors?.length > 0 || result.top_negative_factors?.length > 0) && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Supporting factors</p>
-                    <div className="space-y-2">
-                      {(result.top_positive_factors || []).map((f, i) => (
-                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
-                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-emerald-600">+{f.shap_value}</span></p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Risk factors</p>
-                    <div className="space-y-2">
-                      {(result.top_negative_factors || []).map((f, i) => (
-                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
-                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-red-600">{f.shap_value}</span></p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
               <div className="mt-4 flex flex-wrap gap-2.5">
                 <button onClick={() => decide("approved")} disabled={deciding} className="rounded-xl bg-emerald-600 px-5 py-2.5 text-xs font-bold text-white hover:bg-emerald-700 disabled:opacity-60">
                   {deciding === "approved" ? "Recording…" : "Record approval"}
@@ -355,16 +310,11 @@ export default function LenderDashboard({ go }) {
           </div>
           {selectedDemoCustomer && (
             <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/60 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <p className="text-lg font-extrabold">{selectedDemoCustomer.applicant_name}</p>
-                  <p className="font-mono text-xs text-slate-500">
-                    {selectedDemoCustomer.settl_id} · {selectedDemoCustomer.email} · {selectedDemoCustomer.kyc_verified ? "KYC verified" : "KYC pending"}
-                  </p>
-                </div>
-                <span className={`rounded-full border px-3 py-1 text-xs font-bold uppercase ${BAND_STYLES[selectedDemoCustomer.band] || BAND_STYLES.fair}`}>
-                  {selectedDemoCustomer.band}
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <span className="font-mono text-xs font-bold text-slate-500">{selectedDemoCustomer.settl_id}</span>
+              <span className="rounded-full border border-slate-200 bg-white px-3 py-1 text-xs font-bold text-slate-500">
+                {selectedDemoCustomer.band}
+              </span>
               </div>
               <div className="mt-4 flex items-center gap-4">
                 <span className="font-mono text-5xl font-extrabold tracking-tight">{selectedDemoCustomer.score}</span>
@@ -373,32 +323,6 @@ export default function LenderDashboard({ go }) {
               <div className="mt-2 h-2 overflow-hidden rounded-full bg-slate-200">
                 <div className="h-full rounded-full bg-[#004fc5]" style={{ width: `${Math.round(selectedDemoCustomer.confidence * 100)}%` }} />
               </div>
-              {(selectedDemoCustomer.top_positive_factors?.length > 0 || selectedDemoCustomer.top_negative_factors?.length > 0) && (
-                <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 mb-2">Supporting factors</p>
-                    <div className="space-y-2">
-                      {(selectedDemoCustomer.top_positive_factors || []).map((f, i) => (
-                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
-                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-emerald-600">+{f.shap_value}</span></p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-red-500 mb-2">Risk factors</p>
-                    <div className="space-y-2">
-                      {(selectedDemoCustomer.top_negative_factors || []).map((f, i) => (
-                        <div key={i} className="rounded-xl bg-white border border-slate-100 p-3">
-                          <p className="text-xs font-bold">{f.display_label} <span className="font-mono text-red-600">{f.shap_value}</span></p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">{f.reason_code}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </section>
